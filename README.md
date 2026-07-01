@@ -9,15 +9,9 @@
 [![Rust](https://img.shields.io/badge/Rust-1.75%2B-orange?style=for-the-badge&logo=rust)](https://www.rust-lang.org)
 [![Platform](https://img.shields.io/badge/Windows-10%2F11-blue?style=for-the-badge&logo=windows)](https://github.com/DidimoonYT/zvukopad/releases/latest)
 
----
-
 ## 🚀 Быстрый старт — скачайте готовый .exe
 
-### 📥 [![Download](https://img.shields.io/badge/Скачать_zvukopad.exe-4CAF50?style=for-the-badge&logo=windows&logoColor=white)](https://github.com/DidimoonYT/zvukopad/releases/latest/download/zvukopad.exe)
-
-**Прямые ссылки на релизы:**
-- 🔗 **GitHub Releases:** https://github.com/DidimoonYT/zvukopad/releases/latest
-- 🔗 **GitLab Releases:** https://gitlab.com/didimoonyt/zvukopad/-/releases
+### 📥 [![Download](https://img.shields.io/badge/Скачать_zvukopad.exe-4CAF50?style=for-the-badge&logo=audio&logoColor=white)](https://github.com/DidimoonYT/zvukopad/releases/latest/download/zvukopad.exe)
 
 > После скачивания просто запустите `zvukopad.exe` — установка **не требуется** (портативный single-файл).
 
