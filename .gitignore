@@ -11,5 +11,5 @@ Cargo.lock
 .DS_Store
 Thumbs.db
 
-# Build output (keep versioned exe in root)
-!zvukopad-v*.exe
+# Build artifacts - do not commit binaries
+*.exe
