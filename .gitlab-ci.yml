@@ -1,0 +1,57 @@
+# GitLab CI для автоматических релизов
+# При пуше тега вида v* (например v1.0.0) соберёт релиз и выложит .exe
+
+stages:
+  - build
+  - release
+
+variables:
+  CARGO_TERM_COLOR: "always"
+
+build_windows:
+  stage: build
+  tags:
+    - windows
+  image: mcr.microsoft.com/windows/servercore:ltsc2022
+  before_script:
+    - 'choco install rust -y --version=1.75.0'
+    - 'refreshenv'
+  script:
+    - cargo build --release --target x86_64-pc-windows-msvc
+    - mkdir -p artifacts
+    - copy target\x86_64-pc-windows-msvc\release\zvukopad.exe artifacts\zvukopad.exe
+  artifacts:
+    paths:
+      - artifacts/zvukopad.exe
+    expire_in: 90 days
+  only:
+    - tags
+
+release_gitlab:
+  stage: release
+  image: registry.gitlab.com/gitlab-org/release-cli:latest
+  needs:
+    - job: build_windows
+      artifacts: true
+  script:
+    - |
+      release-cli create \
+        --name "Звукопад ${CI_COMMIT_TAG}" \
+        --tag-name "${CI_COMMIT_TAG}" \
+        --description "## 🔊 Звукопад ${CI_COMMIT_TAG}
+
+        **Аналог Soundpad на Rust** — звуковая панель с горячими клавишами, выводом на несколько устройств и имитацией PTT.
+
+        ### 📥 Скачать
+        - **zvukopad.exe** — готовый к запуску файл (портативный, без установки)
+
+        ### 🚀 Быстрый старт
+        1. Скачайте \`zvukopad.exe\`
+        2. Установите [VB-Audio Virtual Cable](https://vb-audio.com/Cable/) (чтобы звук шёл в Discord/игры)
+        3. В настройках Звукопада выберите **Основное устройство: CABLE Input**
+        4. В Discord/игры поставьте микрофон: **CABLE Output**
+        5. Назначьте горячие клавиши и пользуйте и пользуйтесь!
+        " \
+        --assets-link "{\"name\":\"zvukopad.exe\",\"url\":\"${CI_JOB_URL}/artifacts/artifacts/zvukopad.exe\"}"
+  only:
+    - tags
