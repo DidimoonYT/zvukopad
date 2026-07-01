@@ -1,47 +1,49 @@
-# 🔊 Звукопад — Soundpad на Rust
+# 🔊 Звукопад — Бесплатный аналог Soundpad на Rust
 
-**Аналог Soundpad** — звуковая панель (soundboard) с графическим интерфейсом на русском, поддержкой **своих горячих клавиш**, выводом звука **одновременно на несколько устройств** (например, в виртуальный кабель и в наушники), **глобальной кнопкой «Стоп»** и **имитацией нажатия микрофона (PTT)** в играх во время воспроизведения.
+**Звукопад** — это **бесплатный open-source аналог Soundpad** (саундборд / звуковая панель) для Windows с русским интерфейсом, поддержкой **любых горячих клавиш**, выводом звука **одновременно на два устройства** (виртуальный кабель + наушники), **глобальной кнопкой «Стоп всё»** и **имитацией нажатия клавиши микрофона (PTT)** в играх и Discord во время воспроизведения звуков.
 
-[![GitHub release](https://img.shields.io/github/v/release/didim/zukopad?label=Latest%20Release&style=for-the-badge)](https://github.com/didim/zvukopad/releases/latest)
-[![GitHub downloads](https://img.shields.io/github/downloads/didim/zvukopad/total?style=for-the-badge)](https://github.com/didim/zvukopad/releases/latest)
-[![GitHub last commit](https://img.shields.io/github/last-commit/didim/zvukopad?style=for-the-badge)](https://github.com/didim/zvukopad/commits/master)
+[![GitHub release](https://img.shields.io/github/v/release/DidimoonYT/zvukopad?label=Latest%20Release&style=for-the-badge)](https://github.com/DidimoonYT/zvukopad/releases/latest)
+[![GitHub downloads](https://img.shields.io/github/downloads/DidimoonYT/zvukopad/total?style=for-the-badge)](https://github.com/DidimoonYT/zvukopad/releases/latest)
+[![GitHub last commit](https://img.shields.io/github/last-commit/DidimoonYT/zvukopad?style=for-the-badge)](https://github.com/DidimoonYT/zvukopad/commits/master)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)](LICENSE)
 [![Rust](https://img.shields.io/badge/Rust-1.75%2B-orange?style=for-the-badge&logo=rust)](https://www.rust-lang.org)
-[![Platform](https://img.shields.io/badge/Windows-10%2F11-blue?style=for-the-badge&logo=windows)](https://github.com/didim/zvukopad/releases/latest)
+[![Platform](https://img.shields.io/badge/Windows-10%2F11-blue?style=for-the-badge&logo=windows)](https://github.com/DidimoonYT/zvukopad/releases/latest)
 
 ---
 
-## 🚀 Быстрый старт (одна кнопка — готовый .exe)
-
-> **Не хотите собирать из исходников?** Скачайте готовый `.exe` из последнего релиза:
-
-### 📥 [Скачать последнюю версию](https://github.com/didim/zvukopad/releases/latest/download/zvukopad.exe)
-
-**Или зайдите на страницу релизов:**
-- 🔗 **GitHub Releases:** https://github.com/didim/zvukopad/releases/latest
-- 🔗 **GitLab Releases:** https://gitlab.com/didim/zvukopad/-/releases
-
-> После скачивания просто запустите `zvukopad.exe` — установка **не требуется** (портативныйsingle-файл).
-
----
-
-## ✨ Возможности
+## 🎯 Ключевые возможности (для поиска: бесплатный soundboard, имитация микрофона, PTT, голосовой чат)
 
 | Функция | Описание |
 |---------|----------|
 | 🎹 **Любые горячие клавиши** | С модификаторами (Ctrl/Alt/Shift/Win) или вообще без них (например, просто `1` на Numpad). Работают **глобально** — из любой программы/игры. |
-| 🔀 **Два устройства вывода одновременно** | • **Основное** — обычно виртуальный кабель (VB-Cable), чтобы слышали собеседники в Discord/OBS/игры.<br>• **Мониторинг** (наушники) — опционально, только чтобы вы слышали, что играет. Можно оставить «нет». |
-| 🎤 **Имитация микрофона (PTT)** | Укажите клавишу голосового чата вашей игры (например `V` или `X`), и Звукопад будет автоматически нажимать её во время воспроизведения звука — игра «подумает», что вы говорите. После окончания — отпускает (с настраиваемой задержкой). |
-| ⏹ **Глобальная клавиша «Остановить всё»** | Мгновенно стоп все звуки из любого приложения. |
+| 🔀 **Два устройства вывода одновременно** | • **Основное** — виртуальный кабель (VB-Cable), чтобы слышали собеседники в Discord/OBS/игры.<br>• **Мониторинг** (наушники) — опционально, только чтобы вы слышали, что играет. |
+| 🎤 **Имитация микрофона (PTT / Push-To-Talk)** | Укажите клавишу голосового чата вашей игры (например `V`, `X`, `CapsLock`), и Звукопад **автоматически нажмёт и удержит** её во время воспроизведения — игра/Дискорд «подумает», что вы говорите. После окончания — отпустит с задержкой. |
+| ⏹ **Глобальная клавиша «Остановить всё»** | Мгновенный стоп всех звуков одной кнопкой из любого приложения. |
 | 🔊 **Гибкая громкость** | Мастер-громкость + громкость каждого звука отдельно + отдельная громкость мониторинга. **Изменения применяются мгновенно** — не нужно перезапускать звук. |
-| ⏯ **Перезапуск или наложение** | Повторное нажатие перезапускает звук (можно отключить в настройках). |
-| 📂 **Системный диалог** | Выбор файлов (mp3, wav, ogg, flac, m4a, aac). |
-| 💾 **Автосохранение** | Конфиг в `%APPDATA%/zvukopad/config.json` — настройки не потеряются. |
-| 🪶 **Один `.exe`** | В release-сборке — standalone, без зависимостей. |
+| ⏯ **Перезапуск или наложение** | Повторное нажатие перезапускает звук (можно отключить). |
+| 📂 **Поддержка форматов** | mp3, wav, ogg, flac, m4a, aac — нативный системный диалог выбора. |
+| 💾 **Автосохранение настроек** | Конфиг в `%APPDATA%/zvukopad/config.json` — настройки не потеряются. |
+| 🪶 **Портативный .exe** | Один файл, без установки, без зависимостей. |
+
+> **Ключевые слова для поиска:** бесплатный аналог Soundpad, soundboard для Discord, имитация микрофона в играх, PTT эмуляция, виртуальный кабель VB-Cable, глобальные хоткеи, саундборд на русском.
 
 ---
 
-## 📦 Установка виртуального кабеля (чтобы звук шёл «в микрофон»)
+## 🚀 Быстрый старт (скачать и запустить — без установки)
+
+> **Не хотите собирать из исходников?** Скачайте готовый `.exe` из последнего релиза:
+
+### 📥 [Скачать последнюю версию](https://github.com/DidimoonYT/zvukopad/releases/latest/download/zvukopad.exe)
+
+**Или зайдите на страницу релизов:**
+- 🔗 **GitHub Releases:** https://github.com/DidimoonYT/zvukopad/releases/latest
+- 🔗 **GitLab Releases:** https://gitlab.com/didimoonyt/zvukopad/-/releases
+
+> После скачивания просто запустите `zvukopad.exe` — установка **не требуется** (портативный single-файл).
+
+---
+
+## 📦 Настройка виртуального кабеля (чтобы звук шёл «в микрофон» Discord/игр)
 
 > Это **одноразовое действие** — нужно, чтобы Discord/OBS/игры слышали ваши звуки.
 
@@ -68,14 +70,14 @@
 
 ---
 
-## 🎮 Имитация микрофона (PTT) для игр
+## 🎮 Имитация микрофона (PTT) для игр и Discord
 
-В разделе **«🎤 Имитация микрофона»** укажите клавишу, которая в вашей игре открывает голосовой чат (например `V` или `X`).
+В разделе **«🎤 Имитация микрофона»** укажите клавишу, которая в вашей игре/Дискорде открывает голосовой чат (например `V`, `X`, `CapsLock`, `Numpad0`).
 
-- Во время воспроизведения звука Звукопад **автоматически нажмёт** эту клавишу — игра решит, что вы говорите, и пустит звук.
+- Во время воспроизведения звука Звукопад **автоматически нажмёт и удержит** эту клавишу — игра/Дискорд «подумает», что вы говорите, и пустит звук.
 - После окончания звука клавиша будет **отпущена** с заданной задержкой (по умолчанию 300 мс — чтобы «хвост» точно ушёл).
 
-> ⚠️ Имитация использует Windows `SendInput` со scan-кодами. Это работает в большинстве игр и Discord, но некоторые анти-читы могут блокировать синтетический ввод.
+> ⚠️ Имитация использует Windows `SendInput` со scan-кодами. Это работает в большинстве игр (CS2, Dota 2, Valorant, WoW и др.) и Discord, но некоторые анти-читы могут блокировать синтетический ввод.
 
 ---
 
@@ -83,7 +85,7 @@
 
 1. Добавьте звук через **➕ Добавить звук** → введите имя → «Обзор…» → выберите файл.
 2. В списке звуков нажмите на кнопку клавиши и зажмите нужную комбинацию.
-   - **Можно использовать ЛЮБУЮ клавишу**, даже без модификаторов (например `Numpad1`).
+   - **Можно использовать ЛЮБУЮ клавишу**, даже без модификаторов (например `Numpad1`, `F1`, `Space`).
    - **Esc** — отменить назначение.
    - **Backspace** — убрать клавишу.
    - ✕ рядом с кнопкой — снять назначение.
@@ -98,10 +100,10 @@
 
 ### Сборка
 ```bash
-# GNU-тулчейн (по умолчанию):
+# GNU-тулчейн (по умолчанию, MinGW):
 cargo build --release
 
-# или MSVC:
+# или MSVC (Visual Studio Build Tools):
 rustup default stable-x86_64-pc-windows-msvc
 cargo build --release
 ```
@@ -127,20 +129,22 @@ src/
 
 ## 🔧 Используемые библиотеки
 
-| Библиотека | Назначение |
-|------------|------------|
-| `eframe`/`egui` | Графический интерфейс (native) |
-| `rodio` | Воспроизведение звука (cpal) |
-| `global-hotkey` | Системные горячие клавиши |
-| `rfd` | Нативный диалог выбора файла |
-| `serde`/`serde_json` | Сохранение конфигурации |
-| WinAPI `SendInput` | Имитация нажатия клавиши PTT |
+| Библиотека | Назначение | Лицензия |
+|------------|------------|----------|
+| `eframe`/`egui` | Графический интерфейс (native) | MIT |
+| `rodio` | Воспроизведение звука (cpal) | MIT |
+| `global-hotkey` | Системные горячие клавиши | MIT |
+| `rfd` | Нативный диалог выбора файла | MIT/Apache-2.0 |
+| `serde`/`serde_json` | Сохранение конфигурации | MIT/Apache-2.0 |
+| WinAPI `SendInput` | Имитация нажатия клавиши PTT | — |
 
 ---
 
 ## 📄 Лицензия
 
-MIT — делайте что хотите, только сохраняйте копию лицензии.
+**MIT** — делайте что хотите: используйте в коммерции, продавайте, закрывайте код, меняйте лицензию. Только сохраняйте копию лицензии.
+
+См. файл [LICENSE](LICENSE).
 
 ---
 
@@ -148,5 +152,6 @@ MIT — делайте что хотите, только сохраняйте к
 
 Если проект полезен — поставьте ⭐ на GitHub/GitLab, это мотивирует развивать дальше!
 
-- **Issues / Баги / Идеи:** [GitHub Issues](https://github.com/didim/zvukopad/issues) / [GitLab Issues](https://gitlab.com/didim/zvukopad/-/issues)
-- **Обсуждения:** [GitHub Discussions](https://github.com/didim/zvukopad/discussions)
+- **Issues / Баги / Идеи:** [GitHub Issues](https://github.com/DidimoonYT/zvukopad/issues) / [GitLab Issues](https://gitlab.com/didimoonyt/zvukopad/-/issues)
+- **Обсуждения:** [GitHub Discussions](https://github.com/DidimoonYT/zvukopad/discussions)
+- **Пожертвовать (поддержать разработку):** [GitHub Sponsors](https://github.com/sponsors/DidimoonYT) / [DonationAlerts](https://www.donationalerts.com/r/didimoonyt)

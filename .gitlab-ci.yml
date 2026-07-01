@@ -40,7 +40,7 @@ release_gitlab:
         --tag-name "${CI_COMMIT_TAG}" \
         --description "## 🔊 Звукопад ${CI_COMMIT_TAG}
 
-        **Аналог Soundpad на Rust** — звуковая панель с горячими клавишами, выводом на несколько устройств и имитацией PTT.
+        **Бесплатный аналог Soundpad на Rust** — звуковая панель с горячими клавишами, выводом на два устройства и имитацией PTT (Push-To-Talk).
 
         ### 📥 Скачать
         - **zvukopad.exe** — готовый к запуску файл (портативный, без установки)
@@ -50,7 +50,10 @@ release_gitlab:
         2. Установите [VB-Audio Virtual Cable](https://vb-audio.com/Cable/) (чтобы звук шёл в Discord/игры)
         3. В настройках Звукопада выберите **Основное устройство: CABLE Input**
         4. В Discord/игры поставьте микрофон: **CABLE Output**
-        5. Назначьте горячие клавиши и пользуйте и пользуйтесь!
+        5. Назначьте горячие клавиши и пользуйтесь!
+
+        ### ✨ Что нового
+        См. [CHANGELOG.md](CHANGELOG.md) или историю коммитов.
         " \
         --assets-link "{\"name\":\"zvukopad.exe\",\"url\":\"${CI_JOB_URL}/artifacts/artifacts/zvukopad.exe\"}"
   only:
