@@ -1,0 +1,38 @@
+[package]
+name = "zvukopad"
+version = "0.1.0"
+edition = "2024"
+description = "Звукопад — аналог Soundpad: звуковая панель с горячими клавишами и выбором устройства вывода"
+authors = ["ZCode"]
+license = "MIT"
+
+[dependencies]
+# Графический интерфейс
+eframe = "0.31"
+egui = "0.31"
+
+# Воспроизведение звука (на базе cpal)
+rodio = "0.20"
+
+# Глобальные горячие клавиши
+global-hotkey = "0.6"
+
+# Сериализация конфигурации
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+# Пути к пользовательским папкам (для хранения config.json)
+dirs = "6"
+
+# Логирование
+env_logger = "0.11"
+log = "0.4"
+
+# Диалог выбора файла (нативный для ОС)
+rfd = "0.15"
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+strip = true
