@@ -1,15 +1,8 @@
-# 🔊 Звукопад — Бесплатный аналог Soundpad
-
-**Звукопад** — звуковая панель для Windows с горячими клавишами, выводом на 2 устройства (VB-Cable + наушники), глобальной кнопкой «Стоп всё» и **PTT-имитацией микрофона** (авто-нажатие клавиши в играх/Дискорде).
-
-> Скачайте, запустите — работает без установки (портативный `.exe`).
-
----
-
-## 📥 Скачать
+# 📥 Релизы Звукопада
 
 | Версия | Дата | Ссылка |
 |--------|------|--------|
+| **v1.0.8** | 2024-07-01 | [⬇️ zvukopad-v1.0.8.exe](https://github.com/DidimoonYT/zvukopad/releases/download/v1.0.8/zvukopad-v1.0.8.exe) |
 | **v1.0.7** | 2024-07-01 | [⬇️ zvukopad-v1.0.7.exe](https://github.com/DidimoonYT/zvukopad/releases/download/v1.0.7/zvukopad-v1.0.7.exe) |
 | **v1.0.6** | 2024-07-01 | [⬇️ zvukopad-v1.0.6.exe](https://github.com/DidimoonYT/zvukopad/releases/download/v1.0.6/zvukopad-v1.0.6.exe) |
 | **v1.0.5** | 2024-07-01 | [⬇️ zvukopad-v1.0.5.exe](https://github.com/DidimoonYT/zvukopad/releases/download/v1.0.5/zvukopad-v1.0.5.exe) |
@@ -21,7 +14,7 @@
 
 ## 🚀 Быстрый старт
 
-1. **Скачайте** `zvukopad-v1.0.6.exe` выше
+1. **Скачайте** `zvukopad.exe` из последнего релиза выше
 2. **Установите VB-Cable** (один раз): https://vb-audio.com/Cable/
 3. В Звукопаде: **Основное устройство → CABLE Input**
 4. В Discord/игры: **Микрофон → CABLE Output**
@@ -40,7 +33,7 @@
 
 ---
 
-## 🛠 Сборка
+## 🛠 Сборка (для разработчиков)
 
 ```bash
 # MinGW (GNU)
@@ -58,7 +51,3 @@ cargo build --release
 ## 📄 Лицензия
 
 MIT — делайте что хотите. См. [LICENSE](LICENSE).
-
----
-
-⭐ Если полезно — поставьте звезду на [GitHub](https://github.com/DidimoonYT/zvukopad) или [GitLab](https://gitlab.com/didimoonyt/zvukopad)!
