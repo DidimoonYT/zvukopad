@@ -2,25 +2,23 @@
 
 **Звукопад** — звуковая панель для Windows с горячими клавишами, выводом на 2 устройства (VB-Cable + наушники), глобальной кнопкой «Стоп всё» и **PTT-имитацией микрофона** (авто-нажатие клавиши в играх/Дискорде).
 
-> Скачайте, запустите — работает без установки (портативный `.exe`).
-
 ---
 
-## 📥 Скачать
+## 📥 Скачать последнюю версию
 
-[![GitHub release](https://img.shields.io/github/v/release/DidimoonYT/zvukopad?label=Latest%20Release&style=for-the-badge)](https://github.com/DidimoonYT/zvukopad/releases/latest)
-[![GitHub downloads](https://img.shields.io/github/downloads/DidimoonYT/zvukopad/total?style=for-the-badge&logo=github&color=blue)](https://github.com/DidimoonYT/zvukopad/releases/latest)
+[![Latest Release](https://img.shields.io/github/v/release/DidimoonYT/zvukopad?label=Release&style=for-the-badge&color=2ea44f)](https://github.com/DidimoonYT/zvukopad/releases/latest)
+[![Downloads](https://img.shields.io/github/downloads/DidimoonYT/zvukopad/total?style=for-the-badge&logo=github&color=0078d4)](https://github.com/DidimoonYT/zvukopad/releases/latest)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)](LICENSE)
 
-### 📥 [![Download](https://img.shields.io/badge/Скачать_zvukopad.exe-4CAF50?style=for-the-badge&logo=audio&logoColor=white)](https://github.com/DidimoonYT/zvukopad/releases/latest/download/zvukopad.exe)
+### 📥 [![Download zvukopad.exe](https://img.shields.io/badge/Скачать_zvukopad.exe-2ea44f?style=for-the-badge&logo=download&logoColor=white)](https://github.com/DidimoonYT/zvukopad/releases/latest/download/zvukopad.exe)
 
 > После скачивания просто запустите `zvukopad.exe` — установка **не требуется** (портативный single-файл).
 
 ---
 
-## 🚀 Быстрый старт
+## 🚀 Быстрый старт (5 шагов)
 
-1. **Скачайте** `zvukopad.exe` выше
+1. **Скачайте** `zvukopad.exe` кнопкой выше
 2. **Установите VB-Cable** (один раз): https://vb-audio.com/Cable/
 3. В Звукопаде: **Основное устройство → CABLE Input**
 4. В Discord/игры: **Микрофон → CABLE Output**
