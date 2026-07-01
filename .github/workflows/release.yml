@@ -59,7 +59,7 @@ jobs:
         with:
           tag_name: ${{ github.ref_name }}
           name: Звукопад ${{ github.ref_name }}
-          body_path: CHANGELOG.md
+          body_path: RELEASES.md
           files: release_artifacts/zvukopad-v${{ env.VERSION }}.exe
           draft: false
           prerelease: false

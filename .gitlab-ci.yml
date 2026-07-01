@@ -1,60 +1,61 @@
-# GitLab CI для автоматических релизов
-# При пуше тега вида v* (например v1.0.0) соберёт релиз и выложит .exe
-
 stages:
   - build
   - release
 
 variables:
-  CARGO_TERM_COLOR: "always"
+  RUST_VERSION: "stable"
 
-build_windows:
+build-windows:
   stage: build
+  image: mcr.microsoft.com/windows/servercore:ltsc2022
   tags:
     - windows
-  image: mcr.microsoft.com/windows/servercore:ltsc2022
+  variables:
+    RUSTUP_HOME: "C:\\rustup"
+    CARGO_HOME: "C:\\cargo"
   before_script:
-    - 'choco install rust -y --version=1.75.0'
-    - 'refreshenv'
+    - |
+      if (-not (Test-Path "C:\\rustup")) {
+        Invoke-WebRequest -Uri "https://win.rustup.rs/x86_64" -OutFile "rustup-init.exe"
+        .\rustup-init.exe -y --default-host x86_64-pc-windows-msvc --default-toolchain stable
+        $env:PATH += ";C:\\rustup\\bin;C:\\cargo\\bin"
+      }
+    - cargo --version
+    - rustc --version
   script:
     - cargo build --release --target x86_64-pc-windows-msvc
-    - mkdir -p artifacts
-    - copy target\x86_64-pc-windows-msvc\release\zvukopad.exe artifacts\zvukopad.exe
   artifacts:
     paths:
-      - artifacts/zvukopad.exe
-    expire_in: 90 days
+      - target/x86_64-pc-windows-msvc/release/zvukopad.exe
+    expire_in: 1 week
+
+release-windows:
+  stage: release
+  image: mcr.microsoft.com/windows/servercore:ltsc2022
+  tags:
+    - windows
+  needs: [build-windows]
   only:
     - tags
-
-release_gitlab:
-  stage: release
-  image: registry.gitlab.com/gitlab-org/release-cli:latest
-  needs:
-    - job: build_windows
-      artifacts: true
+  variables:
+    RUSTUP_HOME: "C:\\rustup"
+    CARGO_HOME: "C:\\cargo"
   script:
     - |
-      release-cli create \
-        --name "Звукопад ${CI_COMMIT_TAG}" \
-        --tag-name "${CI_COMMIT_TAG}" \
-        --description "## 🔊 Звукопад ${CI_COMMIT_TAG}
-
-        **Бесплатный аналог Soundpad на Rust** — звуковая панель с горячими клавишами, выводом на два устройства и имитацией PTT (Push-To-Talk).
-
-        ### 📥 Скачать
-        - **zvukopad.exe** — готовый к запуску файл (портативный, без установки)
-
-        ### 🚀 Быстрый старт
-        1. Скачайте \`zvukopad.exe\`
-        2. Установите [VB-Audio Virtual Cable](https://vb-audio.com/Cable/) (чтобы звук шёл в Discord/игры)
-        3. В настройках Звукопада выберите **Основное устройство: CABLE Input**
-        4. В Discord/игры поставьте микрофон: **CABLE Output**
-        5. Назначьте горячие клавиши и пользуйтесь!
-
-        ### ✨ Что нового
-        См. [CHANGELOG.md](CHANGELOG.md) или историю коммитов.
-        " \
-        --assets-link "{\"name\":\"zvukopad.exe\",\"url\":\"${CI_JOB_URL}/artifacts/artifacts/zvukopad.exe\"}"
-  only:
-    - tags
+      $version = (Get-Content Cargo.toml | Select-String '^version\s*=').Line -replace '.*"([^"]+)".*', '$1'
+      echo "VERSION=$version"
+      copy target\x86_64-pc-windows-msvc\release\zvukopad.exe zvukopad-v$version.exe
+    - |
+      # Create release via GitLab API (requires CI_JOB_TOKEN or GITLAB_TOKEN)
+      curl --header "JOB-TOKEN: $CI_JOB_TOKEN" \
+           --header "Content-Type: multipart/form-data" \
+           --form "tag_name=$CI_COMMIT_TAG" \
+           --form "name=Звукопад $CI_COMMIT_TAG" \
+           --form "description=См. RELEASES.md" \
+           --form "assets[0][name]=zvukopad-v$version.exe" \
+           --form "assets[0][file]=@zvukopad-v$version.exe" \
+           "https://gitlab.com/api/v4/projects/$CI_PROJECT_ID/releases"
+  artifacts:
+    paths:
+      - zvukopad-v*.exe
+    expire_in: 1 year
