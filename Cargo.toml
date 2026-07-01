@@ -6,6 +6,10 @@ description = "Звукопад — аналог Soundpad: звуковая па
 authors = ["ZCode"]
 license = "MIT"
 
+# Windows-specific metadata (icon, etc.)
+[package.metadata]
+windows = { icon = "icon.ico" }
+
 [dependencies]
 # Графический интерфейс
 eframe = "0.31"
