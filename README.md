@@ -3,7 +3,7 @@
 **Звукопад** — это **бесплатный open-source аналог Soundpad** (саундборд / звуковая панель) для Windows с русским интерфейсом, поддержкой **любых горячих клавиш**, выводом звука **одновременно на два устройства** (виртуальный кабель + наушники), **глобальной кнопкой «Стоп всё»** и **имитацией нажатия клавиши микрофона (PTT)** в играх и Discord во время воспроизведения звуков.
 
 [![GitHub release](https://img.shields.io/github/v/release/DidimoonYT/zvukopad?label=Latest%20Release&style=for-the-badge)](https://github.com/DidimoonYT/zvukopad/releases/latest)
-[![GitHub downloads](https://img.shields.io/github/downloads/DidimoonYT/zvukopad/total?style=for-the-badge)](https://github.com/DidimoonYT/zvukopad/releases/latest)
+[![GitHub downloads](https://img.shields.io/github/downloads/DidimoonYT/zvukopad/total?style=for-the-badge&logo=github&color=blue)](https://github.com/DidimoonYT/zvukopad/releases/latest)
 [![GitHub last commit](https://img.shields.io/github/last-commit/DidimoonYT/zvukopad?style=for-the-badge)](https://github.com/DidimoonYT/zvukopad/commits/master)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)](LICENSE)
 [![Rust](https://img.shields.io/badge/Rust-1.75%2B-orange?style=for-the-badge&logo=rust)](https://www.rust-lang.org)
@@ -11,31 +11,11 @@
 
 ---
 
-## 🎯 Ключевые возможности (для поиска: бесплатный soundboard, имитация микрофона, PTT, голосовой чат)
+## 🚀 Быстрый старт — скачайте готовый .exe
 
-| Функция | Описание |
-|---------|----------|
-| 🎹 **Любые горячие клавиши** | С модификаторами (Ctrl/Alt/Shift/Win) или вообще без них (например, просто `1` на Numpad). Работают **глобально** — из любой программы/игры. |
-| 🔀 **Два устройства вывода одновременно** | • **Основное** — виртуальный кабель (VB-Cable), чтобы слышали собеседники в Discord/OBS/игры.<br>• **Мониторинг** (наушники) — опционально, только чтобы вы слышали, что играет. |
-| 🎤 **Имитация микрофона (PTT / Push-To-Talk)** | Укажите клавишу голосового чата вашей игры (например `V`, `X`, `CapsLock`), и Звукопад **автоматически нажмёт и удержит** её во время воспроизведения — игра/Дискорд «подумает», что вы говорите. После окончания — отпустит с задержкой. |
-| ⏹ **Глобальная клавиша «Остановить всё»** | Мгновенный стоп всех звуков одной кнопкой из любого приложения. |
-| 🔊 **Гибкая громкость** | Мастер-громкость + громкость каждого звука отдельно + отдельная громкость мониторинга. **Изменения применяются мгновенно** — не нужно перезапускать звук. |
-| ⏯ **Перезапуск или наложение** | Повторное нажатие перезапускает звук (можно отключить). |
-| 📂 **Поддержка форматов** | mp3, wav, ogg, flac, m4a, aac — нативный системный диалог выбора. |
-| 💾 **Автосохранение настроек** | Конфиг в `%APPDATA%/zvukopad/config.json` — настройки не потеряются. |
-| 🪶 **Портативный .exe** | Один файл, без установки, без зависимостей. |
+### 📥 [![Download](https://img.shields.io/badge/Скачать_zvukopad.exe-4CAF50?style=for-the-badge&logo=windows&logoColor=white)](https://github.com/DidimoonYT/zvukopad/releases/latest/download/zvukopad.exe)
 
-> **Ключевые слова для поиска:** бесплатный аналог Soundpad, soundboard для Discord, имитация микрофона в играх, PTT эмуляция, виртуальный кабель VB-Cable, глобальные хоткеи, саундборд на русском.
-
----
-
-## 🚀 Быстрый старт (скачать и запустить — без установки)
-
-> **Не хотите собирать из исходников?** Скачайте готовый `.exe` из последнего релиза:
-
-### 📥 [Скачать последнюю версию](https://github.com/DidimoonYT/zvukopad/releases/latest/download/zvukopad.exe)
-
-**Или зайдите на страницу релизов:**
+**Прямые ссылки на релизы:**
 - 🔗 **GitHub Releases:** https://github.com/DidimoonYT/zvukopad/releases/latest
 - 🔗 **GitLab Releases:** https://gitlab.com/didimoonyt/zvukopad/-/releases
 
@@ -153,5 +133,3 @@ src/
 Если проект полезен — поставьте ⭐ на GitHub/GitLab, это мотивирует развивать дальше!
 
 - **Issues / Баги / Идеи:** [GitHub Issues](https://github.com/DidimoonYT/zvukopad/issues) / [GitLab Issues](https://gitlab.com/didimoonyt/zvukopad/-/issues)
-- **Обсуждения:** [GitHub Discussions](https://github.com/DidimoonYT/zvukopad/discussions)
-- **Пожертвовать (поддержать разработку):** [GitHub Sponsors](https://github.com/sponsors/DidimoonYT) / [DonationAlerts](https://www.donationalerts.com/r/didimoonyt)
