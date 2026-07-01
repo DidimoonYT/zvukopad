@@ -48,11 +48,8 @@ jobs:
       - name: Prepare artifact
         run: |
           mkdir release_artifacts
-          copy target\x86_64-pc-windows-msvc\release\zvukopad.exe release_artifacts\zvukopad-v%VERSION%.exe
           copy target\x86_64-pc-windows-msvc\release\zvukopad.exe release_artifacts\zvukopad.exe
         shell: cmd
-        env:
-          VERSION: ${{ env.VERSION }}
 
       - name: Create Release
         uses: softprops/action-gh-release@v2
@@ -61,9 +58,7 @@ jobs:
           tag_name: ${{ github.ref_name }}
           name: Звукопад ${{ github.ref_name }}
           body_path: RELEASES.md
-          files: |
-            release_artifacts/zvukopad-v${{ env.VERSION }}.exe
-            release_artifacts/zvukopad.exe
+          files: release_artifacts/zvukopad.exe
           draft: false
           prerelease: false
         env:
@@ -74,7 +69,5 @@ jobs:
         if: github.event_name == 'workflow_dispatch'
         with:
           name: zvukopad-windows
-          path: |
-            release_artifacts/zvukopad-v${{ env.VERSION }}.exe
-            release_artifacts/zvukopad.exe
+          path: release_artifacts/zvukopad.exe
           retention-days: 30
