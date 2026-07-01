@@ -1,10 +1,15 @@
 [package]
 name = "zvukopad"
-version = "0.1.0"
-edition = "2024"
-description = "Звукопад — аналог Soundpad: звуковая панель с горячими клавишами и выбором устройства вывода"
-authors = ["ZCode"]
+version = "1.0.4"
+edition = "2021"
+description = "Звукопад — бесплатный аналог Soundpad: звуковая панель с горячими клавишами, PTT и выбором устройств вывода"
+authors = ["DidimoonYT <didimoonyt@gmail.com>"]
 license = "MIT"
+repository = "https://github.com/DidimoonYT/zvukopad"
+homepage = "https://github.com/DidimoonYT/zvukopad"
+readme = "README.md"
+keywords = ["soundboard", "soundpad", "audio", "ptt", "hotkeys", "windows"]
+categories = ["command-line-utilities", "gui", "multimedia"]
 
 # Windows-specific metadata (icon, etc.)
 [package.metadata]
@@ -32,11 +37,18 @@ dirs = "6"
 env_logger = "0.11"
 log = "0.4"
 
+# Загрузка иконки
+image = "0.25"
+
 # Диалог выбора файла (нативный для ОС)
 rfd = "0.15"
 
+[build-dependencies]
+# Встраивание иконки в .exe (Windows resources) - более надежный способ
+embed-resource = "1"
+
 [profile.release]
 opt-level = 3
-lto = true
+lto = false
 codegen-units = 1
 strip = true
