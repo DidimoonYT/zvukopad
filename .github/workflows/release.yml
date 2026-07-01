@@ -51,6 +51,14 @@ jobs:
           copy target\x86_64-pc-windows-msvc\release\zvukopad.exe release_artifacts\zvukopad.exe
         shell: cmd
 
+      - name: Delete existing release (if any)
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          gh release delete "${{ github.ref_name }}" --yes || true
+        shell: cmd
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Create Release
         uses: softprops/action-gh-release@v2
         if: startsWith(github.ref, 'refs/tags/')
