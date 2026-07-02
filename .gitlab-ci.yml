@@ -8,6 +8,8 @@ variables:
 build-windows:
   stage: build
   image: rust:latest
+  variables:
+    WINDOWS_RESOURCE_COMPILER: x86_64-w64-mingw32-windres
   before_script:
     - rustup target add x86_64-pc-windows-gnu
     - apt-get update -qq && apt-get install -y -qq mingw-w64
@@ -22,6 +24,8 @@ release-windows:
   stage: release
   image: alpine:latest
   needs: [build-windows]
+  dependencies:
+    - build-windows
   only:
     - tags
   before_script:
