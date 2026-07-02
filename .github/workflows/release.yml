@@ -1,81 +1,39 @@
-name: Release Build
+name: Release
 
 on:
   push:
     tags:
       - 'v*'
-  workflow_dispatch:
 
 permissions:
   contents: write
 
 jobs:
-  build-windows:
-    runs-on: windows-latest
+  build-and-release:
+    runs-on: ubuntu-latest
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          toolchain: stable
-          target: x86_64-pc-windows-msvc
-
-      - name: Cache Cargo registry
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~\.cargo\registry
-            ~\.cargo\git
-            target
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-cargo-
-
-      - name: Build release
-        run: cargo build --release --target x86_64-pc-windows-msvc
-        shell: cmd
-
-      - name: Get version
-        id: version
+      - name: Install Rust (Windows target)
         run: |
-          FOR /F "tokens=2 delims==" %%a IN ('findstr "^version" Cargo.toml') DO set VER=%%a
-          set VER=%VER:"=%
-          echo "VERSION=%VER%" >> %GITHUB_ENV%
-        shell: cmd
+          rustup set profile minimal
+          rustup update stable
+          rustup target add x86_64-pc-windows-gnu
+          sudo apt-get update
+          sudo apt-get install -y mingw-w64
 
-      - name: Prepare artifact
+      - name: Build Windows binary
         run: |
-          mkdir release_artifacts
-          copy target\x86_64-pc-windows-msvc\release\zvukopad.exe release_artifacts\zvukopad.exe
-        shell: cmd
-
-      - name: Delete existing release (if any)
-        if: startsWith(github.ref, 'refs/tags/')
-        run: |
-          gh release delete "${{ github.ref_name }}" --yes || true
-        shell: cmd
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          cargo build --release --target x86_64-pc-windows-gnu
+          cp target/x86_64-pc-windows-gnu/release/zvukopad.exe zvukopad.exe
 
       - name: Create Release
-        uses: softprops/action-gh-release@v2
-        if: startsWith(github.ref, 'refs/tags/')
-        with:
-          tag_name: ${{ github.ref_name }}
-          name: Звукопад ${{ github.ref_name }}
-          body_path: RELEASES.md
-          files: release_artifacts/zvukopad.exe
-          draft: false
-          prerelease: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Upload artifact (for manual runs)
-        uses: actions/upload-artifact@v4
-        if: github.event_name == 'workflow_dispatch'
-        with:
-          name: zvukopad-windows
-          path: release_artifacts/zvukopad.exe
-          retention-days: 30
+          TAG: ${{ github.ref_name }}
+        run: |
+          gh release create "$TAG" \
+            --repo "${{ github.repository }}" \
+            --title "Звукопад $TAG" \
+            --notes "Релиз $TAG" \
+            zvukopad.exe
