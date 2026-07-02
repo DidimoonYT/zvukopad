@@ -63,7 +63,7 @@ impl ZvukopadApp {
         let devices = audio::AudioEngine::list_output_devices();
         
         // Загружаем сохранённые устройства из конфига
-        let selected_main_device = if config.output_devices.len() > 0 {
+        let selected_main_device = if !config.output_devices.is_empty() {
             let name = &config.output_devices[0].name;
             match name {
                 None => 0,
@@ -109,7 +109,7 @@ impl ZvukopadApp {
         self.audio.borrow_mut().stop_all();
         
         // Основное устройство (индекс 0 в конфиге)
-        if self.config.output_devices.len() > 0 {
+        if !self.config.output_devices.is_empty() {
             let dev_cfg = &self.config.output_devices[0];
             if dev_cfg.enabled {
                 let name = dev_cfg.name.as_deref();
@@ -142,7 +142,7 @@ impl ZvukopadApp {
             }
             
             // Сохраняем в конфиг (output_devices[0])
-            if self.config.output_devices.len() > 0 {
+            if !self.config.output_devices.is_empty() {
                 self.config.output_devices[0].name = name.map(|s| s.to_string());
                 self.config.output_devices[0].volume = volume;
                 self.config.output_devices[0].enabled = true;
@@ -289,7 +289,7 @@ impl ZvukopadApp {
         let old_devices = std::mem::replace(&mut self.devices, new_devices);
         
         // Пересинхронизируем индексы по именам из конфига (output_devices).
-        self.selected_main_device = if self.config.output_devices.len() > 0 {
+        self.selected_main_device = if !self.config.output_devices.is_empty() {
             let name = &self.config.output_devices[0].name;
             match name {
                 None => 0,
