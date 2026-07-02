@@ -23,6 +23,8 @@ jobs:
           sudo apt-get install -y mingw-w64
 
       - name: Build Windows binary
+        env:
+          WINDOWS_RESOURCE_COMPILER: x86_64-w64-mingw32-windres
         run: |
           cargo build --release --target x86_64-pc-windows-gnu
           cp target/x86_64-pc-windows-gnu/release/zvukopad.exe zvukopad.exe
