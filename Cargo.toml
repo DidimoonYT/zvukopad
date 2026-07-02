@@ -3,8 +3,8 @@ name = "zvukopad"
 version = "1.0.10"
 edition = "2021"
 description = "Звукопад — бесплатный аналог Soundpad: звуковая панель с горячими клавишами, PTT и выбором устройств вывода"
-authors = ["DidimoonYT <didimoonyt@gmail.com>"]
-license = "MIT"
+authors = ["DidimoonYT"]
+
 repository = "https://github.com/DidimoonYT/zvukopad"
 homepage = "https://github.com/DidimoonYT/zvukopad"
 readme = "README.md"
