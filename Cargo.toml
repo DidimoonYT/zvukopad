@@ -45,7 +45,7 @@ rfd = "0.15"
 
 [build-dependencies]
 # Встраивание иконки в .exe (Windows resources) - более надежный способ
-embed-resource = "1"
+embed-resource = "2"
 
 [profile.release]
 opt-level = 3
