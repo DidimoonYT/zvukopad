@@ -6,7 +6,7 @@ fn main() {
     // потому что первый проверяет ЦЕЛЕВУЮ ОС (Windows) при кросс-компиляции,
     // а #[cfg(...)] проверяет ХОСТОВУЮ ОС (Linux в GitHub Actions / GitLab CI).
     if std::env::var("CARGO_CFG_TARGET_OS").map(|v| v == "windows").unwrap_or(false) {
-        embed_resource::compile("resource.rc");
+        embed_resource::compile("resource.rc").expect("Failed to embed Windows resource");
     }
 
     // Переменная для post-build скриптов
