@@ -5,9 +5,6 @@ stages:
 variables:
   RUST_VERSION: "stable"
 
-variables:
-  RUST_VERSION: "stable"
-
 build-windows:
   stage: build
   image: rust:latest
