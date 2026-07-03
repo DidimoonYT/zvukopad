@@ -5757,7 +5757,7 @@ dependencies = [
 
 [[package]]
 name = "zvukopad"
-version = "1.0.10"
+version = "1.0.15"
 dependencies = [
  "dirs",
  "eframe",

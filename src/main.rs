@@ -11,6 +11,7 @@ mod config;
 mod hotkeys;
 mod kb_capture;
 mod ptt;
+mod version;
 
 use app::ZvukopadApp;
 use eframe::egui;
@@ -36,10 +37,9 @@ fn main() -> eframe::Result<()> {
     )
     .try_init();
 
-    let version = env!("CARGO_PKG_VERSION");
-    let app_name = format!("Звукопад v{}", version);
+    let app_name = version::version_display();
 
-    log::info!("Запуск Звукопада {}…", version);
+    log::info!("Запуск Звукопада {}…", version::VERSION);
 
     let icon = load_icon();
 

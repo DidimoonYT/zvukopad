@@ -51,6 +51,9 @@ impl HotkeyManager {
     /// Регистрирует горячую клавишу для действия. Если у действия уже была клавиша —
     /// снимает прежнюю. Возвращает ошибку, если комбинация занята другим действием.
     pub fn register(&mut self, action: HotkeyAction, hk: &HotkeyConfig) -> Result<(), String> {
+        if hk.code.is_empty() {
+            return Err("Код клавиши не может быть пустым".into());
+        }
         self.unregister(action);
 
         let hotkey = build_hotkey(hk)?;

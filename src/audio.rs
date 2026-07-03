@@ -9,7 +9,7 @@ use crate::config::HotkeyConfig;
 use crate::ptt;
 use rodio::cpal;
 use rodio::cpal::traits::{DeviceTrait, HostTrait};
-use rodio::{OutputStream, OutputStreamHandle, Sink};
+use rodio::{OutputStream, OutputStreamHandle, Sink, Source};
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::BufReader;
@@ -136,9 +136,8 @@ impl AudioEngine {
     
     /// Устанавливает громкость для устройства
     pub fn set_device_volume(&mut self, device_id: &str, volume: f32) -> Result<(), String> {
-        if let Some((stream, handle, name, old_vol, enabled)) = self.devices.get_mut(device_id) {
+        if let Some((_, _, _, old_vol, _)) = self.devices.get_mut(device_id) {
             *old_vol = volume;
-            // Update volume for currently playing sounds
             for sound in self.playing.values_mut() {
                 if let Some(sink) = sound.sinks.get_mut(device_id) {
                     sink.set_volume((sound.own_volume * volume * self.master_volume).clamp(0.0, 1.0));
@@ -176,8 +175,6 @@ impl AudioEngine {
         master_volume: f32,
         stop_on_replay: bool,
     ) -> Result<bool, String> {
-        self.cleanup_finished();
-
         if self.devices.is_empty() {
             return Err("Нет активных аудиоустройств".into());
         }
@@ -191,13 +188,12 @@ impl AudioEngine {
 
         let mut sinks: HashMap<String, Sink> = HashMap::new();
         
-        // Try to open the file once to avoid multiple opens
         let file = File::open(path)
             .map_err(|e| format!("Не удалось открыть «{path}»: {e}"))?;
         let source = rodio::Decoder::new(BufReader::new(file))
-            .map_err(|e| format!("Не удалось декодировать «{path}»: {e}"))?;
+            .map_err(|e| format!("Не удалось декодировать «{path}»: {e}"))?
+            .buffered();
 
-        // Play on all enabled devices
         for (device_id, (_, handle, _, device_vol, enabled)) in &self.devices {
             if !enabled {
                 continue;
@@ -206,12 +202,7 @@ impl AudioEngine {
             match Sink::try_new(handle) {
                 Ok(sink) => {
                     sink.set_volume((volume * device_vol * master_volume).clamp(0.0, 1.0));
-                    // Need to reopen file for each device since Decoder doesn't implement Clone
-                    let file = File::open(path)
-                        .map_err(|e| format!("Не удалось открыть файл: {e}"))?;
-                    let source = rodio::Decoder::new(BufReader::new(file))
-                        .map_err(|e| format!("Не удалось декодировать файл: {e}"))?;
-                    sink.append(source);
+                    sink.append(source.clone());
                     sinks.insert(device_id.clone(), sink);
                 }
                 Err(e) => log::warn!("Не удалось создать sink для устройства {}: {e}", device_id),
@@ -289,6 +280,7 @@ impl AudioEngine {
             .collect()
     }
 
+    #[allow(dead_code)]
     pub fn is_playing(&self, entry_id: u32) -> bool {
         self.playing.contains_key(&entry_id)
     }

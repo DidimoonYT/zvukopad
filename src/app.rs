@@ -134,9 +134,16 @@ impl ZvukopadApp {
     }
 
     fn apply_main_device(&mut self) {
+        if self.devices.is_empty() {
+            return;
+        }
         if let Some(device) = self.devices.get(self.selected_main_device) {
             let name = if device.is_default { None } else { Some(device.name.as_str()) };
-            let volume = 1.0; // Default volume for main device
+            let volume = if !self.config.output_devices.is_empty() {
+                self.config.output_devices[0].volume
+            } else {
+                1.0
+            };
             if let Err(e) = self.audio.borrow_mut().add_device("main", name, volume, true) {
                 self.status = format!("Ошибка осн. устройства: {e}");
             }
@@ -158,6 +165,9 @@ impl ZvukopadApp {
     }
 
     fn apply_monitoring_device(&mut self) {
+        if self.devices.is_empty() {
+            return;
+        }
         if self.selected_monitor_device == 0 {
             // "нет"
             self.audio.borrow_mut().remove_device("monitor");
@@ -285,8 +295,7 @@ impl ZvukopadApp {
         }
         log::info!("Список устройств изменился, обновляем.");
         
-        // Сохраняем текущие устройства
-        let old_devices = std::mem::replace(&mut self.devices, new_devices);
+        self.devices = new_devices;
         
         // Пересинхронизируем индексы по именам из конфига (output_devices).
         self.selected_main_device = if !self.config.output_devices.is_empty() {
@@ -660,13 +669,13 @@ impl ZvukopadApp {
                 self.dirty = true;
             }
             ui.add_space(4.0);
-            ui.horizontal(|ui| {
-                ui.label("Задержка перед отпусканием (мс):");
-                ui.add(egui::DragValue::new(&mut self.config.ptt_release_delay_ms).range(0..=5000));
-                if ui.button("✓").clicked() {
-                    self.dirty = true;
-                }
-            });
+                ui.horizontal(|ui| {
+                    ui.label("Задержка перед отпусканием (мс):");
+                    let resp = ui.add(egui::DragValue::new(&mut self.config.ptt_release_delay_ms).range(0..=5000));
+                    if resp.changed() {
+                        self.dirty = true;
+                    }
+                });
         });
 
         ui.add_space(6.0);
@@ -726,8 +735,10 @@ impl ZvukopadApp {
                 let mut to_clear_hotkey: Option<usize> = None;
                 let mut volume_changes: Vec<(usize, f32)> = Vec::new();
 
+                let playing_ids: Vec<u32> = self.audio.borrow().playing_names().into_iter().map(|(id, _)| id).collect();
+
                 for (i, entry) in self.config.sounds.iter().enumerate() {
-                    let playing = self.audio.borrow().is_playing(entry.id);
+                    let playing = playing_ids.contains(&entry.id);
                     let hotkey_text = entry
                         .hotkey
                         .as_ref()
@@ -765,15 +776,13 @@ impl ZvukopadApp {
                             let btn_text = if capturing_now {
                                 "Нажмите… (Esc)".to_string()
                             } else {
-                                hotkey_text.clone()
+                                hotkey_text
                             };
                             if ui.button(btn_text).clicked() && !capturing_now {
                                 to_capture = Some(i);
                             }
-                            if entry.hotkey.is_some() {
-                                if ui.small_button("✕").clicked() {
-                                    to_clear_hotkey = Some(i);
-                                }
+                            if entry.hotkey.is_some() && ui.small_button("✕").clicked() {
+                                to_clear_hotkey = Some(i);
                             }
                         });
                         let mut v = entry.volume;
@@ -785,15 +794,13 @@ impl ZvukopadApp {
                         if resp.changed() {
                             volume_changes.push((i, v));
                         }
-                        let path_display = if entry.path.len() > 32 {
-                            format!("…{}", &entry.path[entry.path.len().saturating_sub(30)..])
-                        } else {
-                            entry.path.clone()
-                        };
-                        ui.label(
-                            egui::RichText::new(path_display)
-                                .small()
-                                .color(egui::Color32::GRAY),
+                        ui.add(
+                            egui::Label::new(
+                                egui::RichText::new(&entry.path)
+                                    .small()
+                                    .color(egui::Color32::GRAY),
+                            )
+                            .truncate(),
                         );
                     });
                     ui.end_row();
@@ -906,7 +913,7 @@ impl ZvukopadApp {
             self.edit = None;
         }
         if apply {
-            let edit = self.edit.take().unwrap();
+            let edit = self.edit.take().expect("edit должен быть Some при apply");
             let new_entry = SoundEntry {
                 id: self
                     .config
