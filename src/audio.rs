@@ -13,7 +13,7 @@ use rodio::{OutputStream, OutputStreamHandle, Sink, Source};
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::BufReader;
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 /// Имя устройства вывода по умолчанию (для отображения в списке).
 pub const DEFAULT_DEVICE_NAME: &str = "Системное устройство по умолчанию";
@@ -47,6 +47,8 @@ pub struct AudioEngine {
 
     ptt_hotkey: Option<HotkeyConfig>,
     ptt_held: bool,
+    ptt_release_delay: Duration,
+    ptt_release_at: Option<Instant>,
 
     master_volume: f32,
 }
@@ -58,6 +60,8 @@ impl AudioEngine {
             playing: HashMap::new(),
             ptt_hotkey: None,
             ptt_held: false,
+            ptt_release_delay: Duration::from_millis(300),
+            ptt_release_at: None,
             master_volume: 1.0,
         };
         
@@ -147,6 +151,10 @@ impl AudioEngine {
         } else {
             Err(format!("Устройство {} не найдено", device_id))
         }
+    }
+
+    pub fn set_ptt_release_delay(&mut self, delay_ms: u64) {
+        self.ptt_release_delay = Duration::from_millis(delay_ms);
     }
 
     pub fn set_ptt_hotkey(&mut self, hk: Option<HotkeyConfig>) {
@@ -248,20 +256,6 @@ impl AudioEngine {
         }
     }
 
-    #[allow(dead_code)]
-    pub fn stop_all_except(&mut self, keep_id: u32) {
-        let keys: Vec<u32> = self
-            .playing
-            .keys()
-            .filter(|&&k| k != keep_id)
-            .copied()
-            .collect();
-        for k in keys {
-            self.stop_internal(k);
-        }
-        self.maybe_release_ptt();
-    }
-
     /// Обновляет громкость конкретного играющего звука (в реальном времени).
     pub fn set_entry_volume(&mut self, entry_id: u32, volume: f32) {
         if let Some(p) = self.playing.get_mut(&entry_id) {
@@ -278,11 +272,6 @@ impl AudioEngine {
             .iter()
             .map(|(id, p)| (*id, p.name.clone()))
             .collect()
-    }
-
-    #[allow(dead_code)]
-    pub fn is_playing(&self, entry_id: u32) -> bool {
-        self.playing.contains_key(&entry_id)
     }
 
     /// Применяет мастер-громкость к играющим звукам (все устройства).
@@ -326,24 +315,32 @@ impl AudioEngine {
     }
 
     fn maybe_release_ptt(&mut self) {
-        if self.ptt_held && self.playing.is_empty() {
-            if let Some(hk) = &self.ptt_hotkey {
+        if !self.playing.is_empty() {
+            self.ptt_release_at = None;
+            return;
+        }
+        if !self.ptt_held {
+            self.ptt_release_at = None;
+            return;
+        }
+        let Some(hk) = &self.ptt_hotkey else {
+            self.ptt_release_at = None;
+            return;
+        };
+
+        if let Some(release_at) = self.ptt_release_at {
+            if Instant::now() >= release_at {
                 ptt::release_ptt(hk);
                 self.ptt_held = false;
-                log::debug!("PTT отпущена");
+                self.ptt_release_at = None;
+                log::debug!("PTT отпущена (с задержкой)");
             }
+        } else {
+            self.ptt_release_at = Some(Instant::now() + self.ptt_release_delay);
+            log::debug!("PTT отпустится через {:?}", self.ptt_release_delay);
         }
     }
 
-    #[allow(dead_code)]
-    pub fn force_release_ptt(&mut self) {
-        if self.ptt_held {
-            if let Some(hk) = &self.ptt_hotkey {
-                ptt::release_ptt(hk);
-            }
-            self.ptt_held = false;
-        }
-    }
 }
 
 impl Default for AudioEngine {

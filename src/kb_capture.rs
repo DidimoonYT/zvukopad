@@ -8,8 +8,7 @@
 //! Возвращает (имя_для_конфига, модификаторы). Имя соответствует формату,
 //! который понимают hotkeys::code_from_str и ptt::vk_for_code.
 
-#![cfg(target_os = "windows")]
-
+#[cfg(target_os = "windows")]
 unsafe extern "system" {
     fn GetAsyncKeyState(v_key: i32) -> i16;
 }
@@ -36,6 +35,7 @@ struct VkEntry {
 
 /// Полная таблица VK-кодов с именами в формате конфига.
 /// Порядок важен: Numpad идёт ОТДЕЛЬНО от верхнего ряда цифр.
+#[cfg(target_os = "windows")]
 fn vk_table() -> Vec<VkEntry> {
     use VkEntry as E;
     vec![
@@ -157,6 +157,7 @@ fn vk_table() -> Vec<VkEntry> {
 ///  - игнорируем чистые модификаторы (нужна хотя бы одна основная клавиша).
 ///
 /// Возвращает None, если ни одна основная клавиша не нажата.
+#[cfg(target_os = "windows")]
 pub fn poll_pressed() -> Option<CapturedKey> {
     let table = vk_table();
     let mut modifiers: Vec<String> = Vec::new();
@@ -180,19 +181,15 @@ pub fn poll_pressed() -> Option<CapturedKey> {
 }
 
 /// Проверяет, нажат ли Esc (для отмены захвата).
+#[cfg(target_os = "windows")]
 pub fn is_escape_pressed() -> bool {
     unsafe { GetAsyncKeyState(0x1B) as i32 & KEY_DOWN != 0 }
 }
 
 /// Проверяет, нажат ли Backspace (для очистки клавиши).
+#[cfg(target_os = "windows")]
 pub fn is_backspace_pressed() -> bool {
     unsafe { GetAsyncKeyState(0x08) as i32 & KEY_DOWN != 0 }
-}
-
-#[cfg(not(target_os = "windows"))]
-pub struct CapturedKey {
-    pub code: String,
-    pub modifiers: Vec<String>,
 }
 
 #[cfg(not(target_os = "windows"))]

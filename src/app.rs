@@ -4,7 +4,7 @@
 //! мониторинг, мастер-громкость, глобальные горячие клавиши (стоп/PTT)
 //! и подробная подсказка по использованию.
 
-use crate::audio::{self, AudioEngine, NO_DEVICE_NAME};
+use crate::audio::{self, AudioEngine, DEFAULT_DEVICE_NAME, NO_DEVICE_NAME};
 use crate::config::{Config, HotkeyConfig, SoundEntry};
 use crate::hotkeys::{self, HotkeyAction, HotkeyManager};
 use eframe::egui;
@@ -47,6 +47,8 @@ pub struct ZvukopadApp {
     dirty: bool,
     /// Момент последнего обновления списка устройств.
     last_device_refresh: Instant,
+    /// Для debounce после захвата клавиши (чтобы не поймать отпускание).
+    last_capture_time: Instant,
 }
 
 impl ZvukopadApp {
@@ -95,11 +97,13 @@ impl ZvukopadApp {
             capturing: None,
             dirty: false,
             last_device_refresh: Instant::now(),
+            last_capture_time: Instant::now(),
         };
 
         // Применяем настройки устройств при старте
         app.apply_devices_from_config();
         app.audio.borrow_mut().set_ptt_hotkey(app.config.ptt_hotkey.clone());
+        app.audio.borrow_mut().set_ptt_release_delay(app.config.ptt_release_delay_ms);
         app.register_all_hotkeys();
         app
     }
@@ -317,11 +321,6 @@ impl ZvukopadApp {
         } else {
             0
         };
-        
-        // Reapply device settings
-        self.apply_main_device();
-        self.apply_monitoring_device();
-        
         self.status = "Список устройств обновлён".into();
     }
 }
@@ -393,6 +392,12 @@ impl eframe::App for ZvukopadApp {
 
 impl ZvukopadApp {
     fn handle_capture(&mut self, _ctx: &egui::Context) {
+        // Debounce: не обрабатываем захват чаще чем раз в 150 мс,
+        // чтобы не поймать отпускание предыдущей клавиши.
+        if self.last_capture_time.elapsed() < std::time::Duration::from_millis(150) {
+            return;
+        }
+
         let Some(capture) = self.capturing else {
             return;
         };
@@ -471,10 +476,7 @@ impl ZvukopadApp {
             Err(e) => self.status = e,
         }
         self.capturing = None;
-
-        // Небольшая задержка, чтобы нажатая клавиша успела «отпуститься»
-        // и не сразу повторно сработала в следующем кадре.
-        std::thread::sleep(std::time::Duration::from_millis(120));
+        self.last_capture_time = Instant::now();
     }
 
     fn draw_settings(&mut self, ui: &mut egui::Ui) {
@@ -497,17 +499,49 @@ impl ZvukopadApp {
                     );
 
                     // Список всех устройств
-                    let mut new_main_device = self.selected_main_device;
-                    for (i, device) in self.devices.iter().enumerate() {
-                        let is_selected = i == self.selected_main_device;
-                        if ui.selectable_label(is_selected, &device.name).clicked() {
-                            new_main_device = i;
+                    let display = self
+                        .devices
+                        .get(self.selected_main_device)
+                        .map(|d| d.name.as_str())
+                        .unwrap_or(DEFAULT_DEVICE_NAME);
+
+                    egui::ComboBox::from_label("")
+                        .selected_text(display)
+                        .show_ui(ui, |ui| {
+                            let mut new_main_device = self.selected_main_device;
+                            for (i, device) in self.devices.iter().enumerate() {
+                                if ui.selectable_label(self.selected_main_device == i, &device.name).clicked() {
+                                    new_main_device = i;
+                                }
+                            }
+                            if new_main_device != self.selected_main_device {
+                                self.selected_main_device = new_main_device;
+                                self.dirty = true;
+                                self.apply_main_device();
+                            }
+                        });
+
+                    // Громкость основного устройства
+                    let mut mv = if !self.config.output_devices.is_empty() {
+                        self.config.output_devices[0].volume
+                    } else {
+                        1.0
+                    };
+                    if ui
+                        .add(egui::Slider::new(&mut mv, 0.0..=1.0).text("Громкость устройства 🔊"))
+                        .changed()
+                    {
+                        if !self.config.output_devices.is_empty() {
+                            self.config.output_devices[0].volume = mv;
+                        } else {
+                            self.config.output_devices.push(crate::config::OutputDeviceConfig {
+                                name: None,
+                                volume: mv,
+                                enabled: true,
+                            });
                         }
-                    }
-                    if new_main_device != self.selected_main_device {
-                        self.selected_main_device = new_main_device;
+                        self.audio.borrow_mut().set_device_volume("main", mv).ok();
                         self.dirty = true;
-                        self.apply_main_device();
                     }
                 });
 
@@ -674,6 +708,7 @@ impl ZvukopadApp {
                     let resp = ui.add(egui::DragValue::new(&mut self.config.ptt_release_delay_ms).range(0..=5000));
                     if resp.changed() {
                         self.dirty = true;
+                        self.audio.borrow_mut().set_ptt_release_delay(self.config.ptt_release_delay_ms);
                     }
                 });
         });
@@ -979,51 +1014,3 @@ impl ZvukopadApp {
     }
 }
 
-// ------- Вспомогательные функции -------
-
-/// Функция formerly used for egui-based capture. Kept for reference.
-#[allow(dead_code)]
-fn build_modifiers_list(mods: &egui::Modifiers) -> Vec<String> {
-    let mut out = Vec::new();
-    if mods.ctrl {
-        out.push("ctrl".into());
-    }
-    if mods.alt {
-        out.push("alt".into());
-    }
-    if mods.shift {
-        out.push("shift".into());
-    }
-    if mods.mac_cmd {
-        out.push("super".into());
-    }
-    out
-}
-
-/// Функция formerly used for egui-based capture. Kept for reference.
-#[allow(dead_code)]
-fn egui_key_to_code(key: egui::Key) -> Option<String> {
-    use egui::Key::*;
-    let s = match key {
-        A => "KeyA", B => "KeyB", C => "KeyC", D => "KeyD", E => "KeyE", F => "KeyF",
-        G => "KeyG", H => "KeyH", I => "KeyI", J => "KeyJ", K => "KeyK", L => "KeyL",
-        M => "KeyM", N => "KeyN", O => "KeyO", P => "KeyP", Q => "KeyQ", R => "KeyR",
-        S => "KeyS", T => "KeyT", U => "KeyU", V => "KeyV", W => "KeyW", X => "KeyX",
-        Y => "KeyY", Z => "KeyZ",
-        Num0 => "Digit0", Num1 => "Digit1", Num2 => "Digit2", Num3 => "Digit3", Num4 => "Digit4",
-        Num5 => "Digit5", Num6 => "Digit6", Num7 => "Digit7", Num8 => "Digit8", Num9 => "Digit9",
-        F1 => "F1", F2 => "F2", F3 => "F3", F4 => "F4", F5 => "F5", F6 => "F6", F7 => "F7",
-        F8 => "F8", F9 => "F9", F10 => "F10", F11 => "F11", F12 => "F12",
-        ArrowUp => "ArrowUp", ArrowDown => "ArrowDown", ArrowLeft => "ArrowLeft",
-        ArrowRight => "ArrowRight",
-        Space => "Space", Enter => "Enter", Tab => "Tab", Escape => "Escape",
-        Backspace => "Backspace", Insert => "Insert", Delete => "Delete",
-        Home => "Home", End => "End", PageUp => "PageUp", PageDown => "PageDown",
-        Minus => "Minus", Plus => "Equal", Equals => "Equal",
-        Comma => "Comma", Period => "Period", Semicolon => "Semicolon", Quote => "Quote",
-        Slash => "Slash", Backslash => "Backslash", Backtick => "Backquote",
-        OpenBracket => "BracketLeft", CloseBracket => "BracketRight",
-        _ => return None,
-    };
-    Some(s.into())
-}
