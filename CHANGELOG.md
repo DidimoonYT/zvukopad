@@ -5,21 +5,30 @@
 Формат основан на [Keep a Changelog](https://keepachangelog.com/ru/1.0.0/),
 а проект следует [Semantic Versioning](https://semver.org/lang/ru/).
 
-## [Unreleased]
+## [1.0.15] - 2026-07-03
 
 ### Добавлено
-- GitHub Actions workflow для автоматических релизов под Windows
-- GitLab CI для автоматических релизов под Windows
-- Документация в README.md и RELEASES.md
+- PTT: настраиваемая задержка перед отпусканием клавиши (0–5000 мс)
+- ComboBox для выбора устройств вывода вместо списка
+- Слайдер громкости для основного устройства в настройках
+- Debounce при захвате клавиши (150 мс) — исключает ложное срабатывание
 
 ### Изменено
-- Рефакторинг аудио-движка: поддержка N устройств вывода
-- Конфиг: заменены старые поля на `output_devices: Vec<OutputDeviceConfig>`
-- UI: исправлены borrow-checker ошибки при выборе устройств
+- `#[cfg]` → `CARGO_CFG_TARGET_OS` в build.rs для корректной кросс-компиляции
+- `kb_capture.rs`: все функции обёрнуты в `#[cfg(target_os = "windows")]`
+- `embed-resource` обновлён до v2 (compile принимает 2 аргумента)
+- AGENTS.md синхронизирован (без дублирования CCE из CLAUDE.md)
 
 ### Исправлено
-- Громкость мониторинга не работала при выборе «нет» устройства
-- Переключение устройств больше не останавливает воспроизведение
+- Громкость из конфига теперь применяется при старте приложения
+- Аудио-движок: source.buffered() для корректного клонирования
+- Label::truncate для длинных путей к звуковым файлам
+- Удалён мёртвый код (build_modifiers_list, egui_key_to_code, stop_all_except, is_playing, force_release_ptt)
+- .gitignore: добавлены opencode.json, .claude/, .playwright-mpc/
+
+### Безопасность
+- GitHub PAT удалён из opencode.json, файл добавлен в .gitignore
+- Не забудьте отозвать старый токен в настройках GitHub
 
 ---
 
