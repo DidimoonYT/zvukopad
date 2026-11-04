@@ -49,6 +49,8 @@ pub struct ZvukopadApp {
     last_device_refresh: Instant,
     /// Для debounce после захвата клавиши (чтобы не поймать отпускание).
     last_capture_time: Instant,
+    /// Момент последней записи конфига (дебаунс автосохранения).
+    last_save: Instant,
 }
 
 impl ZvukopadApp {
@@ -98,10 +100,14 @@ impl ZvukopadApp {
             dirty: false,
             last_device_refresh: Instant::now(),
             last_capture_time: Instant::now(),
+            last_save: Instant::now(),
         };
 
         // Применяем настройки устройств при старте
         app.apply_devices_from_config();
+        // Мастер-громкость задаётся движку один раз здесь: раньше она жила
+        // в двух местах, и правка любой другой громкости сбрасывала её на 100 %.
+        app.audio.borrow_mut().set_master_volume(app.config.master_volume);
         app.audio.borrow_mut().set_ptt_hotkey(app.config.ptt_hotkey.clone());
         app.audio.borrow_mut().set_ptt_release_delay(app.config.ptt_release_delay_ms);
         app.register_all_hotkeys();
@@ -109,28 +115,34 @@ impl ZvukopadApp {
     }
 
     fn apply_devices_from_config(&mut self) {
-        // Очищаем текущие устройства
-        self.audio.borrow_mut().stop_all();
-        
-        // Основное устройство (индекс 0 в конфиге)
-        if !self.config.output_devices.is_empty() {
-            let dev_cfg = &self.config.output_devices[0];
-            if dev_cfg.enabled {
-                let name = dev_cfg.name.as_deref();
-                let volume = dev_cfg.volume;
-                if let Err(e) = self.audio.borrow_mut().add_device("main", name, volume, true) {
-                    self.status = format!("Ошибка осн. устройства: {e}");
-                }
-            }
+        // Пересобираем состав устройств с нуля.
+        self.audio.borrow_mut().remove_all_devices();
+
+        // Основное устройство (индекс 0 в конфиге). Если конфига ещё нет —
+        // открываем системное устройство по умолчанию, чтобы звук вообще был.
+        let main_cfg = self.config.output_devices.first().cloned();
+        let (main_name, main_volume) = match &main_cfg {
+            Some(cfg) => (cfg.name.clone(), cfg.volume),
+            None => (None, 1.0),
+        };
+        if let Err(e) =
+            self.audio
+                .borrow_mut()
+                .add_device("main", main_name.as_deref(), main_volume, true)
+        {
+            self.status = format!("Ошибка осн. устройства: {e}");
         }
-        
+
         // Мониторинг (индекс 1 в конфиге)
-        if self.config.output_devices.len() > 1 {
-            let dev_cfg = &self.config.output_devices[1];
+        let monitor_cfg = self.config.output_devices.get(1).cloned();
+        if let Some(dev_cfg) = monitor_cfg {
             if dev_cfg.enabled {
-                let name = dev_cfg.name.as_deref();
-                let volume = dev_cfg.volume;
-                if let Err(e) = self.audio.borrow_mut().add_device("monitor", name, volume, true) {
+                if let Err(e) = self.audio.borrow_mut().add_device(
+                    "monitor",
+                    dev_cfg.name.as_deref(),
+                    dev_cfg.volume,
+                    true,
+                ) {
                     self.status = format!("Мониторинг: {e}");
                 }
             }
@@ -184,10 +196,15 @@ impl ZvukopadApp {
             } else {
                 1.0
             };
+            // «Системное устройство по умолчанию» — псевдозапись списка:
+            // устройства с таким именем не существует, поэтому открываем
+            // устройство по умолчанию (None), а не ищем его по имени.
+            let name = if dev.is_default { None } else { Some(dev.name.as_str()) };
+            let saved_name = name.map(str::to_string);
             if let Err(e) = self
                 .audio
                 .borrow_mut()
-                .add_device("monitor", Some(&dev.name), volume, true)
+                .add_device("monitor", name, volume, true)
             {
                 self.status = format!("Мониторинг: {e}");
                 // Сбрасываем выбор мониторинга в конфиге, т.к. устройство не открылось.
@@ -198,12 +215,12 @@ impl ZvukopadApp {
             } else {
                 // Сохраняем в конфиг (output_devices[1])
                 if self.config.output_devices.len() > 1 {
-                    self.config.output_devices[1].name = Some(dev.name.clone());
+                    self.config.output_devices[1].name = saved_name;
                     self.config.output_devices[1].volume = volume;
                     self.config.output_devices[1].enabled = true;
                 } else {
                     self.config.output_devices.push(crate::config::OutputDeviceConfig {
-                        name: Some(dev.name.clone()),
+                        name: saved_name,
                         volume,
                         enabled: true,
                     });
@@ -249,7 +266,6 @@ impl ZvukopadApp {
             &entry.path,
             &entry.name,
             entry.volume,
-            self.config.master_volume,
             self.config.stop_on_replay,
         ) {
             Ok(true) => self.status = format!("▶ {}", entry.name),
@@ -270,12 +286,22 @@ impl ZvukopadApp {
         self.status = "Нажмите любую клавишу (Esc — отмена, Backspace — убрать)".into();
     }
 
+    /// Сохраняет конфиг, если он изменился. Запись — не чаще раза в 1.5 с:
+    /// перетаскивание слайдера помечает `dirty` на каждом кадре, и без
+    /// дебаунса файл переписывался бы десятки раз в секунду.
     fn save_if_dirty(&mut self) {
-        if self.dirty {
-            if let Err(e) = self.config.save() {
-                self.status = format!("Не удалось сохранить: {e}");
-            }
-            self.dirty = false;
+        if !self.dirty {
+            return;
+        }
+        if self.last_save.elapsed() < std::time::Duration::from_millis(1500) {
+            return;
+        }
+        self.last_save = Instant::now();
+        match self.config.save() {
+            // Флаг снимаем только после успешной записи: иначе изменения
+            // считались бы сохранёнными и молча терялись при выходе.
+            Ok(()) => self.dirty = false,
+            Err(e) => self.status = format!("Не удалось сохранить: {e}"),
         }
     }
 
@@ -387,6 +413,16 @@ impl eframe::App for ZvukopadApp {
 
         // 8. Сохраняем изменения.
         self.save_if_dirty();
+    }
+
+    /// Финальный сброс изменений на диск при выходе (дебаунс может не успеть).
+    fn on_exit(&mut self, _gl: Option<&eframe::glow::Context>) {
+        if self.dirty {
+            if let Err(e) = self.config.save() {
+                log::error!("Не удалось сохранить конфигурацию при выходе: {e}");
+            }
+            self.dirty = false;
+        }
     }
 }
 

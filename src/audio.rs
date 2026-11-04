@@ -55,7 +55,11 @@ pub struct AudioEngine {
 
 impl AudioEngine {
     pub fn new() -> Self {
-        let mut engine = Self {
+        // Устройства вывода здесь НЕ открываются. Если открывать системное
+        // устройство по умолчанию сразу, оно остаётся в `devices` отдельной
+        // записью рядом с выбранным («main»), и каждый звук играет на двух
+        // устройствах сразу. Состав задаёт apply_devices_from_config().
+        Self {
             devices: HashMap::new(),
             playing: HashMap::new(),
             ptt_hotkey: None,
@@ -63,19 +67,7 @@ impl AudioEngine {
             ptt_release_delay: Duration::from_millis(300),
             ptt_release_at: None,
             master_volume: 1.0,
-        };
-        
-        // Initialize default device if available
-        if let Ok((stream, handle)) = build_stream(None) {
-            engine.devices.insert(
-                "default".to_string(),
-                (stream, handle, "Системное устройство по умолчанию".to_string(), 1.0, true)
-            );
-        } else {
-            log::error!("Не удалось инициализировать устройство по умолчанию");
         }
-        
-        engine
     }
 
     /// Перечисляет доступные устройства вывода.
@@ -137,6 +129,12 @@ impl AudioEngine {
         self.devices.remove(device_id);
         log::info!("Устройство удалено: {}", device_id);
     }
+
+    /// Закрывает все устройства вывода (пересборка состава с нуля).
+    pub fn remove_all_devices(&mut self) {
+        self.stop_all();
+        self.devices.clear();
+    }
     
     /// Устанавливает громкость для устройства
     pub fn set_device_volume(&mut self, device_id: &str, volume: f32) -> Result<(), String> {
@@ -180,7 +178,6 @@ impl AudioEngine {
         path: &str,
         name: &str,
         volume: f32,
-        master_volume: f32,
         stop_on_replay: bool,
     ) -> Result<bool, String> {
         if self.devices.is_empty() {
@@ -209,7 +206,7 @@ impl AudioEngine {
             
             match Sink::try_new(handle) {
                 Ok(sink) => {
-                    sink.set_volume((volume * device_vol * master_volume).clamp(0.0, 1.0));
+                    sink.set_volume((volume * device_vol * self.master_volume).clamp(0.0, 1.0));
                     sink.append(source.clone());
                     sinks.insert(device_id.clone(), sink);
                 }
@@ -346,6 +343,20 @@ impl AudioEngine {
 impl Default for AudioEngine {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+impl Drop for AudioEngine {
+    fn drop(&mut self) {
+        // При выходе обязательно отпускаем PTT-клавишу: иначе она остаётся
+        // «зажатой» в системе (в игре это выглядит как залипший микрофон).
+        self.stop_all();
+        if self.ptt_held {
+            if let Some(hk) = &self.ptt_hotkey {
+                ptt::release_ptt(hk);
+            }
+            self.ptt_held = false;
+        }
     }
 }
 

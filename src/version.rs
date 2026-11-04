@@ -24,4 +24,15 @@ mod tests {
         assert!(parts[1].parse::<u32>().is_ok(), "Minor version must be numeric");
         assert!(parts[2].parse::<u32>().is_ok(), "Patch version must be numeric");
     }
+
+    #[test]
+    fn resource_rc_version_matches_cargo() {
+        // Версия в VERSIONINFO (.exe) должна совпадать с Cargo.toml, иначе
+        // в свойствах файла показывается устаревший номер.
+        let rc = include_str!("../resource.rc");
+        assert!(
+            rc.contains(env!("CARGO_PKG_VERSION")),
+            "resource.rc содержит устаревшую версию — синхронизируйте с Cargo.toml"
+        );
+    }
 }

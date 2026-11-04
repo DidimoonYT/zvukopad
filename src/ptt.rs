@@ -10,12 +10,14 @@
 use crate::config::HotkeyConfig;
 
 /// WinAPI-обёртка для SendInput.
+///
+/// ВАЖНО: размер `Input` обязан совпадать с системным `sizeof(INPUT)`
+/// (40 байт на x64, 28 — на x86): SendInput проверяет `cbSize` и при
+/// несовпадении отказывается работать (GetLastError = 87). Поэтому
+/// MOUSEINPUT/KEYBDINPUT/HARDWAREINPUT объединены настоящим union, как в
+/// WinAPI — размер и выравнивание задаёт самый крупный член (MOUSEINPUT).
 #[repr(C)]
-struct InputUnion {
-    ki: KeyboardInput,
-}
-
-#[repr(C)]
+#[derive(Clone, Copy)]
 #[allow(non_snake_case)]
 struct KeyboardInput {
     wVk: u16,
@@ -26,14 +28,49 @@ struct KeyboardInput {
 }
 
 #[repr(C)]
+#[derive(Clone, Copy)]
+#[allow(non_snake_case, dead_code)]
+struct MouseInput {
+    dx: i32,
+    dy: i32,
+    mouse_data: u32,
+    flags: u32,
+    time: u32,
+    dw_extra_info: usize,
+}
+
+#[repr(C)]
+#[derive(Clone, Copy)]
+#[allow(non_snake_case, dead_code)]
+struct HardwareInput {
+    msg: u32,
+    param_l: u16,
+    param_h: u16,
+}
+
+#[repr(C)]
+#[allow(dead_code)]
+union InputUnion {
+    mi: MouseInput,
+    ki: KeyboardInput,
+    hi: HardwareInput,
+}
+
+#[repr(C)]
 struct Input {
     type_: u32,
     union: InputUnion,
 }
 
+/// sizeof(INPUT) из WinAPI. Проверяется на этапе компиляции — если структура
+/// «поедет», сборка упадёт, а не SendInput с непонятной ошибкой в рантайме.
+const INPUT_SIZE: usize = if usize::BITS == 64 { 40 } else { 28 };
+const _: () = assert!(std::mem::size_of::<Input>() == INPUT_SIZE);
+
 unsafe extern "system" {
     fn SendInput(c_inputs: u32, inputs: *const Input, cb_size: i32) -> u32;
     fn MapVirtualKeyW(u_code: u32, u_map_type: u32) -> u32;
+    fn GetLastError() -> u32;
 }
 
 const INPUT_KEYBOARD: u32 = 1;
@@ -181,6 +218,14 @@ fn send_key(vk: u16, extended: bool, up: bool) -> bool {
         };
         let size = std::mem::size_of::<Input>() as i32;
         let sent = SendInput(1, &input, size);
+        if sent != 1 {
+            // Молчаливый отказ SendInput — типовая причина «PTT не работает»,
+            // поэтому пишем причину в лог, а не просто возвращаем false.
+            log::error!(
+                "SendInput не сработал (vk={vk:#X}, cbSize={size}): ошибка {}",
+                GetLastError()
+            );
+        }
         sent == 1
     }
 }

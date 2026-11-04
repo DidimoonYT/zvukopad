@@ -142,6 +142,16 @@ impl Config {
                 Ok(cfg) => cfg,
                 Err(e) => {
                     log::error!("Не удалось разобрать конфигурацию {}: {e}", path.display());
+                    // Не теряем файл: переименовываем повреждённый конфиг в .bak,
+                    // иначе следующее автосохранение затрёт его значениями по умолчанию.
+                    let backup = path.with_extension("json.bak");
+                    match std::fs::rename(&path, &backup) {
+                        Ok(()) => log::warn!(
+                            "Повреждённая конфигурация сохранена как {}",
+                            backup.display()
+                        ),
+                        Err(e) => log::error!("Не удалось сохранить копию конфигурации: {e}"),
+                    }
                     Self::default()
                 }
             },
@@ -157,6 +167,10 @@ impl Config {
     }
 
     /// Сохраняет конфигурацию в файл.
+    ///
+    /// Пишем через временный файл + rename: обрыв записи (падение, выключение
+    /// питания) не оставит обрезанный config.json, из-за которого теряется
+    /// вся звуковая панель.
     pub fn save(&self) -> std::io::Result<()> {
         let Some(path) = Self::path() else {
             return Err(std::io::Error::new(
@@ -169,7 +183,9 @@ impl Config {
         }
         let text = serde_json::to_string_pretty(self)
             .map_err(std::io::Error::other)?;
-        std::fs::write(&path, text)?;
+        let tmp = path.with_extension("json.tmp");
+        std::fs::write(&tmp, text)?;
+        std::fs::rename(&tmp, &path)?;
         log::info!("Конфигурация сохранена: {}", path.display());
         Ok(())
     }
