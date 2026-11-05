@@ -2,8 +2,9 @@ name: Release
 
 on:
   push:
-    tags:
-      - 'v*'
+    branches: [master]
+    paths:
+      - 'Cargo.toml'
 
 permissions:
   contents: write
@@ -13,6 +14,23 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Get version from Cargo.toml
+        id: version
+        run: |
+          VERSION=$(grep '^version' Cargo.toml | head -1 | sed 's/.*= *"\(.*\)".*/\1/')
+          echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Create git tag if missing
+        run: |
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+          if ! git rev-parse "v${{ steps.version.outputs.VERSION }}" >/dev/null 2>&1; then
+            git tag "v${{ steps.version.outputs.VERSION }}"
+            git push origin "v${{ steps.version.outputs.VERSION }}"
+          fi
 
       - name: Install Rust (Windows target)
         run: |
@@ -29,13 +47,17 @@ jobs:
           cargo build --release --target x86_64-pc-windows-gnu
           cp target/x86_64-pc-windows-gnu/release/zvukopad.exe zvukopad.exe
 
-      - name: Create Release
+      - name: Create or update Release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAG: ${{ github.ref_name }}
         run: |
-          gh release create "$TAG" \
-            --repo "${{ github.repository }}" \
-            --title "Звукопад $TAG" \
-            --notes "Релиз $TAG" \
-            zvukopad.exe
+          TAG="v${{ steps.version.outputs.VERSION }}"
+          if gh release view "$TAG" --repo "${{ github.repository }}" >/dev/null 2>&1; then
+            gh release upload "$TAG" zvukopad.exe --repo "${{ github.repository }}" --clobber
+          else
+            gh release create "$TAG" \
+              --repo "${{ github.repository }}" \
+              --title "Звукопад $TAG" \
+              --notes "Релиз $TAG" \
+              zvukopad.exe
+          fi
