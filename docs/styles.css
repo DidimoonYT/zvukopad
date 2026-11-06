@@ -199,7 +199,7 @@ h1 {
 .stats { border-bottom: 1px solid var(--border); }
 .stats-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(5, 1fr);
   gap: 1px;
   padding: 0;
   background: var(--border);
@@ -439,7 +439,7 @@ details p { margin: 12px 0 0; color: var(--muted); font-size: 14.5px; }
   .cards, .cards-4 { grid-template-columns: repeat(2, 1fr); }
   .detail-list { grid-template-columns: 1fr; }
   .steps { grid-template-columns: 1fr; }
-  .stats-grid { grid-template-columns: repeat(2, 1fr); }
+  .stats-grid { grid-template-columns: repeat(3, 1fr); }
 }
 @media (max-width: 720px) {
   .nav a:not(.btn) { display: none; }
