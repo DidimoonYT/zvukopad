@@ -199,7 +199,7 @@ h1 {
 .stats { border-bottom: 1px solid var(--border); }
 .stats-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(5, 1fr);
   gap: 1px;
   padding: 0;
   background: var(--border);
