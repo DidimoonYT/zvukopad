@@ -9,8 +9,11 @@
 [![Latest Release](https://img.shields.io/github/v/release/DidimoonYT/zvukopad?label=Release&style=for-the-badge&color=2ea44f)](https://github.com/DidimoonYT/zvukopad/releases/latest)
 [![Downloads](https://img.shields.io/github/downloads/DidimoonYT/zvukopad/total?style=for-the-badge&logo=github&color=0078d4)](https://github.com/DidimoonYT/zvukopad/releases/latest)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)](LICENSE)
+[![Donate](https://img.shields.io/badge/Donate-DonationAlerts-ff5f5f?style=for-the-badge&logo=heart&logoColor=white)](https://www.donationalerts.com/r/didimoon)
 
 🌐 **[Официальный сайт Звукопада](https://didimoonyt.github.io/zvukopad/)** — описание всех функций, скриншоты и быстрый старт.
+
+❤ **[Поддержать автора на DonationAlerts](https://www.donationalerts.com/r/didimoon)** — проект бесплатный, но донат помогает его развивать.
 
 ### 📥 [![Download zvukopad.exe](https://img.shields.io/badge/Скачать_zvukopad.exe-2ea44f?style=for-the-badge&logo=download&logoColor=white)](https://github.com/DidimoonYT/zvukopad/releases/latest/download/zvukopad.exe)
 
@@ -102,3 +105,5 @@
 ---
 
 ⭐ Если полезно — поставьте звезду на [GitHub](https://github.com/DidimoonYT/zvukopad) или [GitLab](https://gitlab.com/didimoonyt/zvukopad)!
+
+❤ **Поддержать проект:** [DonationAlerts](https://www.donationalerts.com/r/didimoon) — любой донат помогает выпускать обновления.

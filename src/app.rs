@@ -385,7 +385,17 @@ impl eframe::App for ZvukopadApp {
 
         ctx.request_repaint_after(std::time::Duration::from_millis(50));
 
-        // 4. Статус-бар.
+        // 4. Самая нижняя панель — ссылка на донат (слева).
+        egui::TopBottomPanel::bottom("donate_bar").show(ctx, |ui| {
+            ui.horizontal(|ui| {
+                ui.hyperlink_to(
+                    "❤ Поддержать автора (DonationAlerts)",
+                    "https://www.donationalerts.com/r/didimoon",
+                );
+            });
+        });
+
+        // 5. Статус-бар.
         egui::TopBottomPanel::bottom("status_bar").show(ctx, |ui| {
             ui.horizontal(|ui| {
                 ui.label(&self.status);
@@ -398,20 +408,20 @@ impl eframe::App for ZvukopadApp {
             });
         });
 
-        // 5. Настройки (правая панель).
+        // 6. Настройки (правая панель).
         egui::SidePanel::right("settings").show(ctx, |ui| {
             self.draw_settings(ui);
         });
 
-        // 6. Список звуков (центр).
+        // 7. Список звуков (центр).
         egui::CentralPanel::default().show(ctx, |ui| {
             self.draw_sounds_list(ui);
         });
 
-        // 7. Модальное окно редактирования.
+        // 8. Модальное окно редактирования.
         self.draw_edit_dialog(ctx);
 
-        // 8. Сохраняем изменения.
+        // 9. Сохраняем изменения.
         self.save_if_dirty();
     }
 
