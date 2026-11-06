@@ -10,6 +10,8 @@
 [![Downloads](https://img.shields.io/github/downloads/DidimoonYT/zvukopad/total?style=for-the-badge&logo=github&color=0078d4)](https://github.com/DidimoonYT/zvukopad/releases/latest)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)](LICENSE)
 
+🌐 **[Официальный сайт Звукопада](https://didimoonyt.github.io/zvukopad/)** — описание всех функций, скриншоты и быстрый старт.
+
 ### 📥 [![Download zvukopad.exe](https://img.shields.io/badge/Скачать_zvukopad.exe-2ea44f?style=for-the-badge&logo=download&logoColor=white)](https://github.com/DidimoonYT/zvukopad/releases/latest/download/zvukopad.exe)
 
 > После скачивания просто запустите `zvukopad.exe` — установка **не требуется** (портативный single-файл).
