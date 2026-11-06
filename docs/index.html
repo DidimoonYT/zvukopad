@@ -151,7 +151,6 @@
         <div><strong>0 ₽</strong><span>бесплатно и без подписки</span></div>
         <div><strong>2</strong><span>устройства вывода одновременно</span></div>
         <div><strong>1</strong><span>портативный exe-файл</span></div>
-        <div><strong id="downloads-count">—</strong><span>загрузок с GitHub</span></div>
         <div><strong>MIT</strong><span>открытая лицензия</span></div>
       </div>
     </section>
@@ -393,70 +392,5 @@
       </p>
     </div>
   </footer>
-
-  <script>
-    (function () {
-      var CACHE_KEY = "zvukopad-downloads";
-      var CACHE_TTL = 60 * 60 * 1000; // 1 час
-
-      function render(total) {
-        var text = total.toLocaleString("ru-RU");
-        var inline = document.getElementById("downloads-inline");
-        var count = document.getElementById("downloads-count");
-        if (inline) inline.textContent = text;
-        if (count) count.textContent = text;
-      }
-
-      function readCache() {
-        try {
-          var raw = localStorage.getItem(CACHE_KEY);
-          if (!raw) return null;
-          var data = JSON.parse(raw);
-          if (!data || typeof data.total !== "number") return null;
-          if (Date.now() - data.ts > CACHE_TTL) return null;
-          return data.total;
-        } catch (e) {
-          return null;
-        }
-      }
-
-      function writeCache(total) {
-        try {
-          localStorage.setItem(CACHE_KEY, JSON.stringify({ total: total, ts: Date.now() }));
-        } catch (e) { /* приватный режим — просто игнорируем */ }
-      }
-
-      var cached = readCache();
-      if (cached !== null) {
-        render(cached);
-        return;
-      }
-
-      fetch("https://api.github.com/repos/DidimoonYT/zvukopad/releases?per_page=100", {
-        headers: { Accept: "application/vnd.github+json" }
-      })
-        .then(function (r) {
-          if (!r.ok) throw new Error("GitHub API " + r.status);
-          return r.json();
-        })
-        .then(function (releases) {
-          if (!Array.isArray(releases)) throw new Error("Неожиданный ответ");
-          var total = 0;
-          releases.forEach(function (rel) {
-            (rel.assets || []).forEach(function (asset) {
-              total += asset.download_count || 0;
-            });
-          });
-          render(total);
-          writeCache(total);
-        })
-        .catch(function () {
-          var inline = document.getElementById("downloads-inline");
-          var count = document.getElementById("downloads-count");
-          if (inline) inline.textContent = "много";
-          if (count) count.textContent = "—";
-        });
-    })();
-  </script>
 </body>
 </html>
