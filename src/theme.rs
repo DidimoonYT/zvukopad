@@ -1,13 +1,17 @@
 //! Тема оформления «спокойный тёмный Material 3».
 //! Плоские цвета, скругления, воздух. Без градиентов, теней и размытий.
 
+// Палитра и токены дизайн-системы описаны целиком, даже если часть
+// из них пока не задействована в интерфейсе.
+#![allow(dead_code)]
+
 use eframe::egui;
 
-/// Скругления.
-pub const CORNER_CARD: f32 = 20.0;
-pub const CORNER_FIELD: f32 = 12.0;
-pub const CORNER_PILL: f32 = 20.0;
-pub const CORNER_SWITCH: f32 = 13.0;
+/// Скругления (u8, т.к. CornerRadius хранит u8).
+pub const CORNER_CARD: u8 = 20;
+pub const CORNER_FIELD: u8 = 12;
+pub const CORNER_PILL: u8 = 20;
+pub const CORNER_SWITCH: u8 = 13;
 
 /// Отступы.
 pub const PAD_SCREEN: f32 = 16.0;
@@ -93,31 +97,31 @@ pub fn apply_visuals(ctx: &egui::Context, dark: bool) {
         v.widgets.hovered.bg_fill = dark::block();
         v.widgets.open.bg_fill = dark::card();
 
-        v.widgets.noninteractive.fg_stroke = egui::Stroke::new(1.0, dark::text());
-        v.widgets.inactive.fg_stroke = egui::Stroke::new(1.0, dark::secondary());
-        v.widgets.active.fg_stroke = egui::Stroke::new(1.0, dark::accent_text());
-        v.widgets.hovered.fg_stroke = egui::Stroke::new(1.0, dark::text());
-        v.widgets.open.fg_stroke = egui::Stroke::new(1.0, dark::text());
+        v.widgets.noninteractive.fg_stroke = egui::Stroke::new(1.0_f32, dark::text());
+        v.widgets.inactive.fg_stroke = egui::Stroke::new(1.0_f32, dark::secondary());
+        v.widgets.active.fg_stroke = egui::Stroke::new(1.0_f32, dark::accent_text());
+        v.widgets.hovered.fg_stroke = egui::Stroke::new(1.0_f32, dark::text());
+        v.widgets.open.fg_stroke = egui::Stroke::new(1.0_f32, dark::text());
 
-        v.widgets.noninteractive.stroke = egui::Stroke::new(1.0, dark::border());
-        v.widgets.inactive.stroke = egui::Stroke::new(1.0, dark::border());
-        v.widgets.active.stroke = egui::Stroke::new(1.0, dark::accent_border());
-        v.widgets.hovered.stroke = egui::Stroke::new(1.0, dark::accent());
-        v.widgets.open.stroke = egui::Stroke::new(1.0, dark::border());
+        v.widgets.noninteractive.bg_stroke = egui::Stroke::new(1.0_f32, dark::border());
+        v.widgets.inactive.bg_stroke = egui::Stroke::new(1.0_f32, dark::border());
+        v.widgets.active.bg_stroke = egui::Stroke::new(1.0_f32, dark::accent_border());
+        v.widgets.hovered.bg_stroke = egui::Stroke::new(1.0_f32, dark::accent());
+        v.widgets.open.bg_stroke = egui::Stroke::new(1.0_f32, dark::border());
 
-        v.window_rounding = egui::Rounding::same(CORNER_CARD);
-        v.widgets.noninteractive.rounding = egui::Rounding::same(CORNER_CARD);
-        v.widgets.inactive.rounding = egui::Rounding::same(CORNER_CARD);
-        v.widgets.active.rounding = egui::Rounding::same(CORNER_PILL);
-        v.widgets.hovered.rounding = egui::Rounding::same(CORNER_PILL);
-        v.widgets.open.rounding = egui::Rounding::same(CORNER_CARD);
+        v.widgets.noninteractive.corner_radius = egui::CornerRadius::same(CORNER_CARD);
+        v.widgets.inactive.corner_radius = egui::CornerRadius::same(CORNER_CARD);
+        v.widgets.active.corner_radius = egui::CornerRadius::same(CORNER_PILL);
+        v.widgets.hovered.corner_radius = egui::CornerRadius::same(CORNER_PILL);
+        v.widgets.open.corner_radius = egui::CornerRadius::same(CORNER_CARD);
 
         v.selection.bg_fill = dark::accent();
-        v.selection.stroke = egui::Stroke::none();
+        v.selection.stroke = egui::Stroke::NONE;
         v.hyperlink_color = dark::accent();
         v.faint_bg_color = dark::block();
-        v.window_stroke = egui::Stroke::new(1.0, dark::border());
-        v.window_shadow = eframe::epaint::Shadow::none();
+        v.window_corner_radius = egui::CornerRadius::same(CORNER_CARD);
+        v.window_stroke = egui::Stroke::new(1.0_f32, dark::border());
+        v.window_shadow = egui::epaint::Shadow::NONE;
 
         ctx.set_visuals(v);
     } else {
@@ -129,28 +133,28 @@ pub fn apply_visuals(ctx: &egui::Context, dark: bool) {
         v.widgets.active.bg_fill = light::accent();
         v.widgets.hovered.bg_fill = light::card();
 
-        v.window_stroke = egui::Stroke::new(1.0, light::accent());
-        v.window_shadow = eframe::epaint::Shadow::none();
+        v.window_stroke = egui::Stroke::new(1.0_f32, light::accent());
+        v.window_shadow = egui::epaint::Shadow::NONE;
         ctx.set_visuals(v);
     }
 }
 
 /// Карточка: скруглённый фон, обводка, внутренние и внешние отступы.
 pub fn card_frame() -> egui::Frame {
-    egui::Frame::none()
+    egui::Frame::NONE
         .fill(dark::card())
-        .rounding(egui::Rounding::same(CORNER_CARD))
-        .stroke(egui::Stroke::new(1.0, dark::border()))
+        .corner_radius(egui::CornerRadius::same(CORNER_CARD))
+        .stroke(egui::Stroke::new(1.0_f32, dark::border()))
         .inner_margin(egui::vec2(PAD_CARD, PAD_CARD))
         .outer_margin(egui::vec2(0.0, PAD_BETWEEN))
 }
 
 /// Блок внутри карточки (второй уровень вложенности).
 pub fn block_frame() -> egui::Frame {
-    egui::Frame::none()
+    egui::Frame::NONE
         .fill(dark::block())
-        .rounding(egui::Rounding::same(CORNER_FIELD))
-        .stroke(egui::Stroke::new(1.0, dark::border()))
+        .corner_radius(egui::CornerRadius::same(CORNER_FIELD))
+        .stroke(egui::Stroke::new(1.0_f32, dark::border()))
         .inner_margin(egui::vec2(PAD_CARD, PAD_CARD))
         .outer_margin(egui::vec2(0.0, PAD_BETWEEN))
 }
@@ -162,13 +166,9 @@ pub fn pill_button(ui: &mut egui::Ui, text: &str) -> egui::Response {
         .strong();
     ui.add(
         egui::Button::new(rich)
-            .frame(
-                egui::Frame::none()
-                    .fill(dark::accent())
-                    .rounding(egui::Rounding::same(CORNER_PILL))
-                    .inner_margin(egui::vec2(16.0, 10.0))
-                    .stroke(egui::Stroke::new(1.0, dark::accent_border()))
-            )
+            .fill(dark::accent())
+            .stroke(egui::Stroke::new(1.0_f32, dark::accent_border()))
+            .corner_radius(egui::CornerRadius::same(CORNER_PILL))
     )
 }
 
@@ -178,13 +178,9 @@ pub fn text_button(ui: &mut egui::Ui, text: &str) -> egui::Response {
         egui::Button::new(
             egui::RichText::new(text).color(dark::text())
         )
-            .frame(
-                egui::Frame::none()
-                    .fill(dark::block())
-                    .rounding(egui::Rounding::same(CORNER_PILL))
-                    .inner_margin(egui::vec2(12.0, 8.0))
-                    .stroke(egui::Stroke::new(1.0, dark::border()))
-            )
+            .fill(dark::block())
+            .stroke(egui::Stroke::new(1.0_f32, dark::border()))
+            .corner_radius(egui::CornerRadius::same(CORNER_PILL))
     )
 }
 
@@ -194,13 +190,9 @@ pub fn small_text_button(ui: &mut egui::Ui, text: &str) -> egui::Response {
         egui::Button::new(
             egui::RichText::new(text).size(FONT_CAPTION).color(dark::muted())
         )
-            .frame(
-                egui::Frame::none()
-                    .fill(dark::block())
-                    .rounding(egui::Rounding::same(CORNER_FIELD))
-                    .inner_margin(egui::vec2(8.0, 4.0))
-                    .stroke(egui::Stroke::new(1.0, dark::border()))
-            )
+            .fill(dark::block())
+            .stroke(egui::Stroke::new(1.0_f32, dark::border()))
+            .corner_radius(egui::CornerRadius::same(CORNER_FIELD))
     )
 }
 
@@ -208,7 +200,7 @@ pub fn small_text_button(ui: &mut egui::Ui, text: &str) -> egui::Response {
 pub fn status_row(ui: &mut egui::Ui, color: egui::Color32, label: &str) {
     ui.horizontal(|ui| {
         let size = 10.0;
-        let (rect, _) = ui.allocate_exact_size(egui::vec2(size, size), egui::Sense::hover());
+        let (rect, _) = ui.allocate_exact_size(egui::vec2(size, size), egui::Sense::empty());
         let center = rect.center();
         ui.painter().circle_filled(center, size / 2.0, color);
         ui.add_space(8.0);
@@ -265,32 +257,4 @@ pub fn app_title(ui: &mut egui::Ui, text: &str) {
             .strong()
             .color(dark::text())
     );
-}
-
-/// Всплывающая подсказка со статусом success/warning/error.
-pub fn status_badge(ui: &mut egui::Ui, kind: StatusKind, label: &str) {
-    let (bg, border, text) = match kind {
-        StatusKind::Success => (dark::success(), dark::success(), dark::bg()),
-        StatusKind::Warning => (dark::warning_bg(), dark::warning_border(), dark::warning_text()),
-        StatusKind::Error => (dark::error(), dark::error(), egui::Color32::WHITE),
-    };
-    ui.horizontal(|ui| {
-        let size = 10.0;
-        let (rect, _) = ui.allocate_exact_size(egui::vec2(size, size), egui::Sense::none());
-        ui.painter().circle_filled(rect.center(), size / 2.0, text);
-        ui.add_space(8.0);
-        ui.label(
-            egui::RichText::new(label)
-                .size(FONT_BODY)
-                .color(text)
-                .strong()
-        );
-    });
-}
-
-#[derive(Clone, Copy, PartialEq)]
-pub enum StatusKind {
-    Success,
-    Warning,
-    Error,
 }

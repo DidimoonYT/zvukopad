@@ -10,10 +10,11 @@ use crate::config::{Config, HotkeyConfig, SoundEntry};
 use crate::hotkeys::{self, HotkeyAction, HotkeyManager};
 use crate::theme::{
     self, card_frame, card_title, caption, dark, pill_button, secondary_text,
-    small_text_button, status_row, FONT_BODY, FONT_CAPTION, FONT_CARD_HEADER,
-    FONT_TITLE, PAD_BETWEEN, PAD_CARD, PAD_SCREEN,
+    small_text_button, status_row, app_title, body, text_button,
+    FONT_BODY, PAD_BETWEEN, PAD_CARD, PAD_SCREEN,
 };
 use eframe::egui;
+use eframe::egui::CornerRadius;
 use std::cell::RefCell;
 use std::rc::Rc;
 use std::time::Instant;
@@ -880,10 +881,10 @@ impl ZvukopadApp {
 
                     // Карточка записи без внешнего отступа — расстояние между
                     // карточками задаёт Grid spacing.
-                    egui::Frame::none()
+                    egui::Frame::NONE
                         .fill(dark::block())
-                        .rounding(egui::Rounding::same(theme::CORNER_FIELD))
-                        .stroke(egui::Stroke::new(1.0, dark::border()))
+                        .corner_radius(CornerRadius::same(theme::CORNER_FIELD))
+                        .stroke(egui::Stroke::new(1.0_f32, dark::border()))
                         .inner_margin(egui::vec2(PAD_CARD, PAD_CARD))
                         .show(ui, |ui| {
                             ui.set_min_width(240.0);
@@ -899,20 +900,12 @@ impl ZvukopadApp {
                                         .size(FONT_BODY)
                                         .color(if playing { dark::success() } else { dark::text() })
                                 )
-                                    .frame(
-                                        egui::Frame::none()
-                                            .fill(if playing {
-                                                dark::success()
-                                            } else {
-                                                dark::accent()
-                                            })
-                                            .rounding(egui::Rounding::same(theme::CORNER_PILL))
-                                            .inner_margin(egui::vec2(12.0, 8.0))
-                                            .stroke(egui::Stroke::new(
-                                                1.0,
-                                                if playing { dark::success() } else { dark::accent_border() },
-                                            ))
-                                    );
+                                    .fill(if playing { dark::success() } else { dark::accent() })
+                                    .stroke(egui::Stroke::new(
+                                        1.0_f32,
+                                        if playing { dark::success() } else { dark::accent_border() },
+                                    ))
+                                    .corner_radius(CornerRadius::same(theme::CORNER_PILL));
                                 if ui.add(btn).clicked() {
                                     if playing {
                                         to_stop = Some(i);
