@@ -11,9 +11,10 @@
 use crate::config::HotkeyConfig;
 use global_hotkey::{
     hotkey::{Code, HotKey, Modifiers},
-    GlobalHotKeyEvent, GlobalHotKeyManager,
+    GlobalHotKeyEvent, GlobalHotKeyManager, HotKeyState,
 };
 use std::collections::HashMap;
+use std::sync::{mpsc, Arc, Mutex};
 
 /// Действие, привязанное к горячей клавише.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -31,10 +32,61 @@ pub enum HotkeyAction {
 /// Менеджер глобальных горячих клавиш.
 pub struct HotkeyManager {
     manager: GlobalHotKeyManager,
-    /// id горячей клавиши -> действие.
-    action_map: HashMap<u32, HotkeyAction>,
+    /// id горячей клавиши -> действие. Карта общая с фоновым приёмником:
+    /// события приходят в отдельном потоке и должны знать, что нажимать.
+    action_map: Arc<Mutex<HashMap<u32, HotkeyAction>>>,
     /// Действие -> зарегистрированный HotKey (для unregister).
     registered: HashMap<HotkeyAction, HotKey>,
+}
+
+/// Фоновый приёмник нажатий.
+///
+/// `WM_HOTKEY` приходит на скрытое окно, созданное на потоке event loop.
+/// Если разбирать события только в `update()`, при невидимом/свёрнутом окне
+/// (и особенно когда eframe перестаёт перерисовываться) нажатия могут
+/// «зависнуть» в очереди. Поэтому события читает отдельный поток, а окно
+/// будится через `request_repaint`.
+pub struct HotkeyBridge {
+    rx: mpsc::Receiver<HotkeyAction>,
+}
+
+impl HotkeyBridge {
+    /// Запускает поток-приёмник. `wake` вызывается после каждого нажатия,
+    /// чтобы UI проснулся и обработал действие.
+    pub fn spawn(
+        action_map: Arc<Mutex<HashMap<u32, HotkeyAction>>>,
+        wake: impl Fn() + Send + 'static,
+    ) -> Self {
+        let (tx, rx) = mpsc::channel();
+        std::thread::Builder::new()
+            .name("zvukopad-hotkeys".into())
+            .spawn(move || {
+                log::info!("Поток горячих клавиш запущен");
+                while let Ok(event) = GlobalHotKeyEvent::receiver().recv() {
+                    if !matches!(event.state, HotKeyState::Pressed) {
+                        continue;
+                    }
+                    log::debug!("Событие хоткея id={}", event.id);
+                    let action = action_map
+                        .lock()
+                        .ok()
+                        .and_then(|map| map.get(&event.id).copied());
+                    if let Some(action) = action {
+                        if tx.send(action).is_err() {
+                            break;
+                        }
+                        wake();
+                    }
+                }
+            })
+            .expect("не удалось запустить поток горячих клавиш");
+        Self { rx }
+    }
+
+    /// Забирает накопившиеся действия (неблокирующе).
+    pub fn drain(&self) -> Vec<HotkeyAction> {
+        self.rx.try_iter().collect()
+    }
 }
 
 impl HotkeyManager {
@@ -43,9 +95,14 @@ impl HotkeyManager {
         let manager = GlobalHotKeyManager::new().map_err(|e| e.to_string())?;
         Ok(Self {
             manager,
-            action_map: HashMap::new(),
+            action_map: Arc::new(Mutex::new(HashMap::new())),
             registered: HashMap::new(),
         })
+    }
+
+    /// Общая карта id -> действие для фонового приёмника.
+    pub fn action_map(&self) -> Arc<Mutex<HashMap<u32, HotkeyAction>>> {
+        Arc::clone(&self.action_map)
     }
 
     /// Регистрирует горячую клавишу для действия. Если у действия уже была клавиша —
@@ -61,9 +118,15 @@ impl HotkeyManager {
 
         let hotkey = build_hotkey(hk)?;
         let id = hotkey.id();
-        if let Some(other) = self.action_map.get(&id) {
-            if *other != action {
-                return Err(format!("Комбинация занята другим действием: {other:?}"));
+        {
+            let map = self
+                .action_map
+                .lock()
+                .map_err(|_| "Карта горячих клавиш заблокирована")?;
+            if let Some(other) = map.get(&id) {
+                if *other != action {
+                    return Err(format!("Комбинация занята другим действием: {other:?}"));
+                }
             }
         }
 
@@ -72,7 +135,8 @@ impl HotkeyManager {
 
         match self.manager.register(hotkey) {
             Ok(()) => {
-                self.action_map.insert(id, action);
+                log::debug!("Хоткей {} зарегистрирован, id={id}", hk.code);
+                self.map_insert(id, action);
                 self.registered.insert(action, hotkey);
                 Ok(())
             }
@@ -81,7 +145,7 @@ impl HotkeyManager {
                 // без хоткея из-за неудачной попытки.
                 if let Some(prev) = previous {
                     if self.manager.register(prev).is_ok() {
-                        self.action_map.insert(prev.id(), action);
+                        self.map_insert(prev.id(), action);
                         self.registered.insert(action, prev);
                     }
                 }
@@ -90,10 +154,28 @@ impl HotkeyManager {
         }
     }
 
+    fn map_insert(&self, id: u32, action: HotkeyAction) {
+        if let Ok(mut map) = self.action_map.lock() {
+            map.insert(id, action);
+        }
+    }
+
+    fn map_remove(&self, id: u32) {
+        if let Ok(mut map) = self.action_map.lock() {
+            map.remove(&id);
+        }
+    }
+
+    fn map_clear(&self) {
+        if let Ok(mut map) = self.action_map.lock() {
+            map.clear();
+        }
+    }
+
     /// Снимает регистрацию горячей клавиши действия.
     pub fn unregister(&mut self, action: HotkeyAction) {
         if let Some(hk) = self.registered.remove(&action) {
-            self.action_map.remove(&hk.id());
+            self.map_remove(hk.id());
             let _ = self.manager.unregister(hk);
         }
     }
@@ -103,21 +185,7 @@ impl HotkeyManager {
         for (_, hk) in self.registered.drain() {
             let _ = self.manager.unregister(hk);
         }
-        self.action_map.clear();
-    }
-
-    /// Опрашивает события и возвращает сработавшие действия (только Pressed).
-    pub fn poll(&self) -> Vec<HotkeyAction> {
-        let receiver = GlobalHotKeyEvent::receiver();
-        let mut triggered = Vec::new();
-        while let Ok(event) = receiver.try_recv() {
-            if matches!(event.state, global_hotkey::HotKeyState::Pressed) {
-                if let Some(&action) = self.action_map.get(&event.id) {
-                    triggered.push(action);
-                }
-            }
-        }
-        triggered
+        self.map_clear();
     }
 }
 

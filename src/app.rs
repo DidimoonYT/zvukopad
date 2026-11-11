@@ -61,6 +61,8 @@ pub struct ZvukopadApp {
     /// Тема применяется один раз: `ctx.set_visuals` каждый кадр заставляет
     /// egui пересобирать стиль и лишний раз перерисовывать всё окно.
     theme_applied: bool,
+    /// Фоновый приёмник глобальных горячих клавиш.
+    hotkey_bridge: Option<hotkeys::HotkeyBridge>,
 }
 
 impl ZvukopadApp {
@@ -116,6 +118,7 @@ impl ZvukopadApp {
             last_capture_time: Instant::now(),
             last_save: Instant::now(),
             theme_applied: false,
+            hotkey_bridge: None,
         };
 
         // Применяем настройки устройств при старте
@@ -383,9 +386,22 @@ impl eframe::App for ZvukopadApp {
         // 0. Периодически обновляем список устройств (каждые 5 секунд).
         self.refresh_devices_if_needed();
 
-        // 1. Опрашиваем глобальные горячие клавиши.
-        let triggered = self.hotkeys.borrow().poll();
+        // 1. Глобальные горячие клавиши. События читает фоновый поток:
+        // так они не теряются, когда окно свёрнуто или не перерисовывается.
+        if self.hotkey_bridge.is_none() {
+            let ctx = ctx.clone();
+            let action_map = self.hotkeys.borrow().action_map();
+            self.hotkey_bridge = Some(hotkeys::HotkeyBridge::spawn(action_map, move || {
+                ctx.request_repaint();
+            }));
+        }
+        let triggered = self
+            .hotkey_bridge
+            .as_ref()
+            .map(|bridge| bridge.drain())
+            .unwrap_or_default();
         for action in triggered {
+            log::info!("Горячая клавиша: {action:?}");
             match action {
                 HotkeyAction::Play(entry_id) => {
                     if let Some(idx) = self.config.sounds.iter().position(|s| s.id == entry_id) {
@@ -1197,6 +1213,9 @@ impl ZvukopadApp {
                     body(ui, "      которая открывает голосовой чат в вашей игре.");
                     body(ui, "   • Во время воспроизведения Звукопад автоматически");
                     body(ui, "      нажмёт эту клавишу — игра подумает, что вы говорите.");
+                    ui.add_space(2.0);
+                    body(ui, "   • Если игра/Discord запущены от администратора, запустите");
+                    body(ui, "      Звукопад тоже от администратора — иначе Windows блокирует ввод.");
                     ui.add_space(4.0);
                     body(ui, "5. Глобальная клавиша «Остановить всё» позволяет мгновенно");
                     body(ui, "   остановить все играющие звуки одной кнопкой.");

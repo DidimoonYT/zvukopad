@@ -75,8 +75,6 @@ unsafe extern "system" {
 
 const INPUT_KEYBOARD: u32 = 1;
 const KEYEVENTF_KEYUP: u32 = 0x0002;
-/// Используем scan-код (надёжнее для игр, которые читают hardware-скан-коды).
-const KEYEVENTF_SCANCODE: u32 = 0x0008;
 const KEYEVENTF_EXTENDEDKEY: u32 = 0x0001;
 const MAPVK_VK_TO_VSC: u32 = 0;
 
@@ -223,11 +221,14 @@ pub fn release_ptt(hk: &HotkeyConfig) -> bool {
 }
 
 /// Посылает событие нажатия/отпускания клавиши через SendInput.
-/// Использует scan-код (KEYEVENTF_SCANCODE), что надёжнее для игр.
+///
+/// Отправляем виртуальный ключ (`wVk`) и заполняем scan-код, но БЕЗ флага
+/// `KEYEVENTF_SCANCODE`: при нём Windows игнорирует `wVk`, и низкоуровневые
+/// хуки (Discord, OBS, часть игр) получают `vkCode = 0` и не видят нажатие.
 fn send_key(vk: u16, extended: bool, up: bool) -> bool {
     unsafe {
         let scan = MapVirtualKeyW(vk as u32, MAPVK_VK_TO_VSC) as u16;
-        let mut flags = KEYEVENTF_SCANCODE;
+        let mut flags = 0u32;
         if extended {
             flags |= KEYEVENTF_EXTENDEDKEY;
         }
@@ -238,7 +239,7 @@ fn send_key(vk: u16, extended: bool, up: bool) -> bool {
             type_: INPUT_KEYBOARD,
             union: InputUnion {
                 ki: KeyboardInput {
-                    wVk: 0, // по scan-коду, vk=0
+                    wVk: vk,
                     wScan: scan,
                     dwFlags: flags,
                     time: 0,
@@ -248,6 +249,10 @@ fn send_key(vk: u16, extended: bool, up: bool) -> bool {
         };
         let size = std::mem::size_of::<Input>() as i32;
         let sent = SendInput(1, &input, size);
+        log::debug!(
+            "SendInput: vk={vk:#X} scan={scan:#X} flags={flags:#X} up={up} cbSize={size} sent={sent} err={}",
+            GetLastError()
+        );
         if sent != 1 {
             // Молчаливый отказ SendInput — типовая причина «PTT не работает»,
             // поэтому пишем причину в лог, а не просто возвращаем false.

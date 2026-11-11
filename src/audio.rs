@@ -210,6 +210,10 @@ impl AudioEngine {
             .map_err(|e| format!("Не удалось декодировать «{path}»: {e}"))?
             .buffered();
 
+        // Микрофон открываем ДО старта звука: иначе первые миллисекунды
+        // фразы уходят, пока игра ещё не увидела нажатую PTT-клавишу.
+        self.ensure_ptt_pressed();
+
         for (device_id, (_, handle, _, device_vol, enabled)) in &self.devices {
             if !enabled {
                 continue;
@@ -228,6 +232,7 @@ impl AudioEngine {
         // Ни один sink не создался — иначе запись попала бы в `playing`,
         // в интерфейсе горело бы «Играет», а звук бы молчал.
         if sinks.is_empty() {
+            self.maybe_release_ptt();
             return Err("Не удалось вывести звук ни на одно устройство".into());
         }
 
@@ -241,7 +246,6 @@ impl AudioEngine {
             },
         );
 
-        self.ensure_ptt_pressed();
         Ok(true)
     }
 
