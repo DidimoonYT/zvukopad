@@ -5,6 +5,8 @@ on:
     branches: [master]
     paths:
       - 'Cargo.toml'
+      - '.github/workflows/release.yml'
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -32,13 +34,23 @@ jobs:
             git push origin "v${{ steps.version.outputs.VERSION }}"
           fi
 
+      # Официальный action ставит стабильный Rust и нужный target за секунды.
+      # Раньше здесь был `rustup update stable`, который на runner'ах зависал.
       - name: Install Rust (Windows target)
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-pc-windows-gnu
+
+      # Лёгкий пакет вместо всего mingw-w64: даёт windres и dlltool.
+      - name: Install mingw-w64 linker
         run: |
-          rustup set profile minimal
-          rustup update stable
-          rustup target add x86_64-pc-windows-gnu
           sudo apt-get update
-          sudo apt-get install -y mingw-w64
+          sudo apt-get install -y gcc-mingw-w64-x86-64
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: ". -> target"
 
       - name: Build Windows binary
         env:
