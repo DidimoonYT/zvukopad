@@ -10,6 +10,7 @@ on:
 
 permissions:
   contents: write
+  issues: write
 
 jobs:
   build-and-release:
@@ -49,10 +50,29 @@ jobs:
       - name: Cache cargo
         uses: Swatinem/rust-cache@v2
 
+      # Собираем с сохранением лога, чтобы при падении можно было его прочитать.
       - name: Build Windows binary
         run: |
-          cargo build --release
+          set -o pipefail
+          cargo build --release 2>&1 | tee build.log
           cp target/release/zvukopad.exe zvukopad.exe
+
+      # Диагностика: при ошибке публикуем хвост лога в issue (публично читаемо).
+      - name: Publish build log on failure
+        if: failure()
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          {
+            echo 'Лог сборки (последние 400 строк):'
+            echo '```'
+            tail -n 400 build.log 2>/dev/null || echo 'build.log отсутствует'
+            echo '```'
+          } > issue-body.md
+          gh issue create \
+            --repo "${{ github.repository }}" \
+            --title "[CI] Ошибка сборки v${{ steps.version.outputs.VERSION }} (run ${{ github.run_id }})" \
+            --body-file issue-body.md
 
       - name: Create or update Release
         env:
