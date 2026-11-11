@@ -177,6 +177,18 @@ impl AudioEngine {
         self.ptt_hotkey = hk;
     }
 
+    /// Немедленно отпускает PTT-клавишу, если она удерживается.
+    /// Нужно перед назначением новой клавиши и при выходе.
+    pub fn force_release_ptt(&mut self) {
+        if self.ptt_held {
+            if let Some(hk) = &self.ptt_hotkey {
+                ptt::release_ptt(hk);
+            }
+            self.ptt_held = false;
+        }
+        self.ptt_release_at = None;
+    }
+
     /// Задаёт мастер-громкость и сразу применяет к играющим звукам.
     pub fn set_master_volume(&mut self, vol: f32) {
         self.master_volume = vol;
@@ -325,7 +337,6 @@ impl AudioEngine {
     }
 
     // ------- PTT -------
-
     fn ensure_ptt_pressed(&mut self) {
         if self.ptt_held {
             return;

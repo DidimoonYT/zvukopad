@@ -28,7 +28,7 @@ struct PendingEdit {
 }
 
 /// Состояние захвата горячей клавиши.
-#[derive(Clone, Copy, PartialEq)]
+#[derive(Clone, Copy, PartialEq, Debug)]
 enum CaptureTarget {
     /// Назначение клавиши на запись (индекс).
     Sound(usize),
@@ -51,6 +51,8 @@ pub struct ZvukopadApp {
     status: String,
     edit: Option<PendingEdit>,
     capturing: Option<CaptureTarget>,
+    /// Состояние захвата клавиши (реагирует только на новые нажатия).
+    key_capture: Option<crate::kb_capture::KeyCapture>,
     dirty: bool,
     /// Момент последнего обновления списка устройств.
     last_device_refresh: Instant,
@@ -113,6 +115,7 @@ impl ZvukopadApp {
             status: "Готово".to_string(),
             edit: None,
             capturing: None,
+            key_capture: None,
             dirty: false,
             last_device_refresh: Instant::now(),
             last_capture_time: Instant::now(),
@@ -308,6 +311,11 @@ impl ZvukopadApp {
     }
 
     fn start_capture(&mut self, target: CaptureTarget) {
+        log::debug!("Захват клавиши начат: {target:?}");
+        // Удерживаемая PTT-клавиша не должна попасть в захват: сначала
+        // отпускаем её, затем снимаем снимок зажатых клавиш.
+        self.audio.borrow_mut().force_release_ptt();
+        self.key_capture = Some(crate::kb_capture::KeyCapture::start());
         self.capturing = Some(target);
         self.status = "Нажмите любую клавишу (Esc — отмена, Backspace — убрать)".into();
     }
@@ -545,6 +553,7 @@ impl ZvukopadApp {
 
         if crate::kb_capture::is_escape_pressed() {
             self.capturing = None;
+            self.key_capture = None;
             self.status = "Отменено".into();
             return;
         }
@@ -572,13 +581,19 @@ impl ZvukopadApp {
                 }
             }
             self.capturing = None;
+            self.key_capture = None;
             self.status = "Клавиша убрана".into();
             return;
         }
 
-        let Some(captured) = crate::kb_capture::poll_pressed() else {
+        let Some(captured) = self.key_capture.as_mut().and_then(|c| c.poll()) else {
             return;
         };
+        log::debug!(
+            "Захвачена клавиша {}, модификаторы {:?}",
+            captured.code,
+            captured.modifiers
+        );
 
         let hk = HotkeyConfig::new(captured.modifiers, captured.code);
         let apply_result = match capture {
@@ -624,6 +639,7 @@ impl ZvukopadApp {
             Err(e) => self.status = e,
         }
         self.capturing = None;
+        self.key_capture = None;
         self.last_capture_time = Instant::now();
     }
 

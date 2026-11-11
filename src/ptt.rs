@@ -169,6 +169,20 @@ fn vk_for_code(code: &str) -> Option<(u16, bool)> {
         "BRACKETLEFT" => Some((0xDB, false)),
         "BRACKETRIGHT" => Some((0xDD, false)),
         "BACKQUOTE" => Some((0xC0, false)),
+        // Одиночные модификаторы (для PTT): левый/правый различаются.
+        "SHIFTLEFT" => Some((0xA0, false)),
+        "SHIFTRIGHT" => Some((0xA1, false)),
+        "CONTROLLEFT" => Some((0xA2, false)),
+        "CONTROLRIGHT" => Some((0xA3, true)),
+        "ALTLEFT" => Some((0xA4, false)),
+        "ALTRIGHT" => Some((0xA5, true)),
+        "METALEFT" | "WINLEFT" => Some((0x5B, true)),
+        "METARIGHT" | "WINRIGHT" => Some((0x5C, true)),
+        // Служебные клавиши
+        "PRINTSCREEN" => Some((0x2C, true)),
+        "SCROLLLOCK" => Some((0x91, false)),
+        "PAUSE" => Some((0x13, false)),
+        "NUMLOCK" => Some((0x90, true)),
         _ => None,
     }
 }

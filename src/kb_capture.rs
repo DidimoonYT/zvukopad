@@ -122,6 +122,11 @@ fn vk_table() -> Vec<VkEntry> {
         E { vk: 0x24, name: "Home", is_modifier: false },
         E { vk: 0x2D, name: "Insert", is_modifier: false },
         E { vk: 0x2E, name: "Delete", is_modifier: false },
+        // Служебные клавиши
+        E { vk: 0x2C, name: "PrintScreen", is_modifier: false },
+        E { vk: 0x91, name: "ScrollLock", is_modifier: false },
+        E { vk: 0x13, name: "Pause", is_modifier: false },
+        E { vk: 0x90, name: "NumLock", is_modifier: false },
         // Numpad-операции
         E { vk: 0x6A, name: "NumpadMultiply", is_modifier: false },
         E { vk: 0x6B, name: "NumpadAdd", is_modifier: false },
@@ -150,35 +155,59 @@ fn vk_table() -> Vec<VkEntry> {
     ]
 }
 
-/// Опрашивает состояние клавиш и возвращает нажатую комбинацию.
-/// Логика:
-///  - собираем все нажатые модификаторы;
-///  - первую найденную НЕ-модификатор клавишу считаем основной;
-///  - игнорируем чистые модификаторы (нужна хотя бы одна основная клавиша).
+/// Состояние захвата клавиши между кадрами.
 ///
-/// Возвращает None, если ни одна основная клавиша не нажата.
+/// Реагируем только на **новые** нажатия: клавиши, зажатые до входа в режим
+/// назначения (например, PTT, удерживающий клавишу во время звука),
+/// игнорируются. Раньше бралась первая зажатая клавиша по порядку таблицы,
+/// поэтому при активном PTT вместо нажатой F9 назначалась удерживаемая F8.
 #[cfg(target_os = "windows")]
-pub fn poll_pressed() -> Option<CapturedKey> {
-    let table = vk_table();
-    let mut modifiers: Vec<String> = Vec::new();
-    let mut main_code: Option<String> = None;
+pub struct KeyCapture {
+    down: Vec<bool>,
+}
 
-    for entry in &table {
-        if (unsafe { GetAsyncKeyState(entry.vk) } as i32) & KEY_DOWN != 0 {
-            if entry.is_modifier {
-                let name = entry.name.to_string();
-                if !modifiers.contains(&name) {
-                    modifiers.push(name);
-                }
-            } else if main_code.is_none() {
-                main_code = Some(entry.name.to_string());
-            }
-        }
+#[cfg(target_os = "windows")]
+impl KeyCapture {
+    pub fn start() -> Self {
+        let down = vk_table().iter().map(|e| is_down(e.vk)).collect();
+        Self { down }
     }
 
-    let code = main_code?;
-    Some(CapturedKey { code, modifiers })
+    /// Возвращает клавишу, которую пользователь нажал после начала захвата.
+    pub fn poll(&mut self) -> Option<CapturedKey> {
+        let table = vk_table();
+        let mut modifiers: Vec<String> = Vec::new();
+        let mut new_main: Option<String> = None;
+
+        for (i, entry) in table.iter().enumerate() {
+            let down = is_down(entry.vk);
+            let was = self.down.get(i).copied().unwrap_or(false);
+
+            if down {
+                if entry.is_modifier {
+                    let name = entry.name.to_string();
+                    if !modifiers.contains(&name) {
+                        modifiers.push(name);
+                    }
+                } else if !was && new_main.is_none() {
+                    new_main = Some(entry.name.to_string());
+                }
+            }
+
+            if i < self.down.len() {
+                self.down[i] = down;
+            }
+        }
+
+        new_main.map(|code| CapturedKey { code, modifiers })
+    }
 }
+
+#[cfg(target_os = "windows")]
+fn is_down(vk: i32) -> bool {
+    (unsafe { GetAsyncKeyState(vk) } as i32) & KEY_DOWN != 0
+}
+
 
 /// Проверяет, нажат ли Esc (для отмены захвата).
 #[cfg(target_os = "windows")]
