@@ -149,6 +149,17 @@ pub fn card_frame() -> egui::Frame {
         .outer_margin(egui::vec2(0.0, PAD_BETWEEN))
 }
 
+/// Компактная карточка для панели настроек: меньше вертикальные поля,
+/// чтобы весь столбец помещался в окно без прокрутки.
+pub fn settings_card() -> egui::Frame {
+    egui::Frame::NONE
+        .fill(dark::card())
+        .corner_radius(egui::CornerRadius::same(CORNER_CARD))
+        .stroke(egui::Stroke::new(1.0_f32, dark::border()))
+        .inner_margin(egui::vec2(PAD_CARD, 12.0))
+        .outer_margin(egui::vec2(0.0, 6.0))
+}
+
 /// Блок внутри карточки (второй уровень вложенности).
 pub fn block_frame() -> egui::Frame {
     egui::Frame::NONE
