@@ -94,35 +94,45 @@ impl AudioEngine {
     }
 
     /// Добавляет или обновляет устройство вывода
-    pub fn add_device(&mut self, device_id: &str, device_name: Option<&str>, volume: f32, enabled: bool) -> Result<(), String> {
+    pub fn add_device(
+        &mut self,
+        device_id: &str,
+        device_name: Option<&str>,
+        volume: f32,
+        enabled: bool,
+    ) -> Result<(), String> {
         self.stop_all();
-        
+
         // Remove existing device if present
         self.devices.remove(device_id);
-        
+
         if !enabled {
             return Ok(());
         }
-        
+
         let actual_name = device_name.unwrap_or(DEFAULT_DEVICE_NAME);
         let actual = if actual_name == DEFAULT_DEVICE_NAME {
             None
         } else {
             Some(actual_name)
         };
-        
+
         let (stream, handle) = build_stream(actual)
             .map_err(|e| format!("Не удалось открыть устройство «{actual_name}»: {e}"))?;
-            
+
         self.devices.insert(
             device_id.to_string(),
-            (stream, handle, actual_name.to_string(), volume, true)
+            (stream, handle, actual_name.to_string(), volume, true),
         );
-        
-        log::info!("Устройство добавлено/обновлено: {} (громкость {})", actual_name, volume);
+
+        log::info!(
+            "Устройство добавлено/обновлено: {} (громкость {})",
+            actual_name,
+            volume
+        );
         Ok(())
     }
-    
+
     /// Удаляет устройство вывода
     pub fn remove_device(&mut self, device_id: &str) {
         self.stop_all();
@@ -135,14 +145,16 @@ impl AudioEngine {
         self.stop_all();
         self.devices.clear();
     }
-    
+
     /// Устанавливает громкость для устройства
     pub fn set_device_volume(&mut self, device_id: &str, volume: f32) -> Result<(), String> {
         if let Some((_, _, _, old_vol, _)) = self.devices.get_mut(device_id) {
             *old_vol = volume;
             for sound in self.playing.values_mut() {
                 if let Some(sink) = sound.sinks.get_mut(device_id) {
-                    sink.set_volume((sound.own_volume * volume * self.master_volume).clamp(0.0, 1.0));
+                    sink.set_volume(
+                        (sound.own_volume * volume * self.master_volume).clamp(0.0, 1.0),
+                    );
                 }
             }
             Ok(())
@@ -192,9 +204,8 @@ impl AudioEngine {
         }
 
         let mut sinks: HashMap<String, Sink> = HashMap::new();
-        
-        let file = File::open(path)
-            .map_err(|e| format!("Не удалось открыть «{path}»: {e}"))?;
+
+        let file = File::open(path).map_err(|e| format!("Не удалось открыть «{path}»: {e}"))?;
         let source = rodio::Decoder::new(BufReader::new(file))
             .map_err(|e| format!("Не удалось декодировать «{path}»: {e}"))?
             .buffered();
@@ -203,7 +214,7 @@ impl AudioEngine {
             if !enabled {
                 continue;
             }
-            
+
             match Sink::try_new(handle) {
                 Ok(sink) => {
                     sink.set_volume((volume * device_vol * self.master_volume).clamp(0.0, 1.0));
@@ -212,6 +223,12 @@ impl AudioEngine {
                 }
                 Err(e) => log::warn!("Не удалось создать sink для устройства {}: {e}", device_id),
             }
+        }
+
+        // Ни один sink не создался — иначе запись попала бы в `playing`,
+        // в интерфейсе горело бы «Играет», а звук бы молчал.
+        if sinks.is_empty() {
+            return Err("Не удалось вывести звук ни на одно устройство".into());
         }
 
         self.playing.insert(
@@ -269,6 +286,12 @@ impl AudioEngine {
             .iter()
             .map(|(id, p)| (*id, p.name.clone()))
             .collect()
+    }
+
+    /// Нужно ли будить интерфейс часто: пока играет звук или PTT ждёт
+    /// отложенного отпускания (иначе задержка отпускания «плыла» бы).
+    pub fn needs_periodic_wakeup(&self) -> bool {
+        !self.playing.is_empty() || self.ptt_release_at.is_some()
     }
 
     /// Применяет мастер-громкость к играющим звукам (все устройства).
@@ -337,7 +360,6 @@ impl AudioEngine {
             log::debug!("PTT отпустится через {:?}", self.ptt_release_delay);
         }
     }
-
 }
 
 impl Default for AudioEngine {
@@ -360,13 +382,10 @@ impl Drop for AudioEngine {
     }
 }
 
-
-
 /// Создаёт OutputStream + handle для устройства по имени. None = по умолчанию.
 fn build_stream(device_name: Option<&str>) -> Result<(OutputStream, OutputStreamHandle), String> {
     match device_name {
-        None => OutputStream::try_default()
-            .map_err(|e| format!("Устр-во по умолчанию: {e}")),
+        None => OutputStream::try_default().map_err(|e| format!("Устр-во по умолчанию: {e}")),
         Some(name) => {
             let device = cpal::default_host()
                 .output_devices()

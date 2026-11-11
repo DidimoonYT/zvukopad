@@ -175,21 +175,51 @@ fn vk_for_code(code: &str) -> Option<(u16, bool)> {
     }
 }
 
+/// VK-коды модификаторов из конфига (и флаг extended).
+fn modifier_keys(modifiers: &[String]) -> Vec<(u16, bool)> {
+    let mut keys: Vec<(u16, bool)> = Vec::new();
+    for m in modifiers {
+        let key = match m.to_lowercase().as_str() {
+            "ctrl" | "control" => (0x11, false),
+            "shift" => (0x10, false),
+            "alt" | "option" => (0x12, false),
+            "super" | "win" | "meta" | "cmd" | "command" => (0x5B, true),
+            _ => continue,
+        };
+        if !keys.contains(&key) {
+            keys.push(key);
+        }
+    }
+    keys
+}
+
 /// Нажимает (и удерживает) клавишу PTT.
+///
+/// Сначала зажимаются модификаторы (если PTT назначен как Ctrl+V), затем
+/// основная клавиша — иначе игра получила бы просто «V».
 pub fn press_ptt(hk: &HotkeyConfig) -> bool {
     let Some((vk, extended)) = vk_for_code(&hk.code) else {
         log::warn!("PTT: неизвестная клавиша {}", hk.code);
         return false;
     };
-    send_key(vk, extended, false)
+    let mut ok = true;
+    for (mod_vk, mod_extended) in modifier_keys(&hk.modifiers) {
+        ok &= send_key(mod_vk, mod_extended, false);
+    }
+    ok & send_key(vk, extended, false)
 }
 
-/// Отпускает клавишу PTT.
+/// Отпускает клавишу PTT: сначала основную, затем модификаторы в обратном
+/// порядке, чтобы не «залипнуть» с зажатым Ctrl в системе.
 pub fn release_ptt(hk: &HotkeyConfig) -> bool {
     let Some((vk, extended)) = vk_for_code(&hk.code) else {
         return false;
     };
-    send_key(vk, extended, true)
+    let mut ok = send_key(vk, extended, true);
+    for (mod_vk, mod_extended) in modifier_keys(&hk.modifiers).into_iter().rev() {
+        ok &= send_key(mod_vk, mod_extended, true);
+    }
+    ok
 }
 
 /// Посылает событие нажатия/отпускания клавиши через SendInput.

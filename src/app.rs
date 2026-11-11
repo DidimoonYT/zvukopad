@@ -9,9 +9,9 @@ use crate::audio::{self, AudioEngine, DEFAULT_DEVICE_NAME, NO_DEVICE_NAME};
 use crate::config::{Config, HotkeyConfig, SoundEntry};
 use crate::hotkeys::{self, HotkeyAction, HotkeyManager};
 use crate::theme::{
-    self, card_frame, card_title, caption, dark, pill_button, secondary_text,
-    settings_card, small_text_button, status_row, app_title, body, text_button,
-    FONT_BODY, PAD_BETWEEN, PAD_CARD, PAD_SCREEN,
+    self, app_title, body, caption, card_frame, card_title, dark, pill_button, secondary_text,
+    settings_card, small_text_button, status_row, text_button, FONT_BODY, PAD_BETWEEN, PAD_CARD,
+    PAD_SCREEN,
 };
 use eframe::egui;
 use eframe::egui::CornerRadius;
@@ -58,6 +58,9 @@ pub struct ZvukopadApp {
     last_capture_time: Instant,
     /// Момент последней записи конфига (дебаунс автосохранения).
     last_save: Instant,
+    /// Тема применяется один раз: `ctx.set_visuals` каждый кадр заставляет
+    /// egui пересобирать стиль и лишний раз перерисовывать всё окно.
+    theme_applied: bool,
 }
 
 impl ZvukopadApp {
@@ -112,14 +115,20 @@ impl ZvukopadApp {
             last_device_refresh: Instant::now(),
             last_capture_time: Instant::now(),
             last_save: Instant::now(),
+            theme_applied: false,
         };
 
         // Применяем настройки устройств при старте
         app.apply_devices_from_config();
         // Мастер-громкость задаётся движку один раз здесь.
-        app.audio.borrow_mut().set_master_volume(app.config.master_volume);
-        app.audio.borrow_mut().set_ptt_hotkey(app.config.ptt_hotkey.clone());
-        app.audio.borrow_mut()
+        app.audio
+            .borrow_mut()
+            .set_master_volume(app.config.master_volume);
+        app.audio
+            .borrow_mut()
+            .set_ptt_hotkey(app.config.ptt_hotkey.clone());
+        app.audio
+            .borrow_mut()
             .set_ptt_release_delay(app.config.ptt_release_delay_ms);
         app.register_all_hotkeys();
         app
@@ -133,10 +142,10 @@ impl ZvukopadApp {
             Some(cfg) => (cfg.name.clone(), cfg.volume),
             None => (None, 1.0),
         };
-        if let Err(e) = self
-            .audio
-            .borrow_mut()
-            .add_device("main", main_name.as_deref(), main_volume, true)
+        if let Err(e) =
+            self.audio
+                .borrow_mut()
+                .add_device("main", main_name.as_deref(), main_volume, true)
         {
             self.status = format!("Ошибка осн. устройства: {e}");
         }
@@ -161,13 +170,21 @@ impl ZvukopadApp {
             return;
         }
         if let Some(device) = self.devices.get(self.selected_main_device) {
-            let name = if device.is_default { None } else { Some(device.name.as_str()) };
+            let name = if device.is_default {
+                None
+            } else {
+                Some(device.name.as_str())
+            };
             let volume = if !self.config.output_devices.is_empty() {
                 self.config.output_devices[0].volume
             } else {
                 1.0
             };
-            if let Err(e) = self.audio.borrow_mut().add_device("main", name, volume, true) {
+            if let Err(e) = self
+                .audio
+                .borrow_mut()
+                .add_device("main", name, volume, true)
+            {
                 self.status = format!("Ошибка осн. устройства: {e}");
             }
 
@@ -176,11 +193,13 @@ impl ZvukopadApp {
                 self.config.output_devices[0].volume = volume;
                 self.config.output_devices[0].enabled = true;
             } else {
-                self.config.output_devices.push(crate::config::OutputDeviceConfig {
-                    name: name.map(|s| s.to_string()),
-                    volume,
-                    enabled: true,
-                });
+                self.config
+                    .output_devices
+                    .push(crate::config::OutputDeviceConfig {
+                        name: name.map(|s| s.to_string()),
+                        volume,
+                        enabled: true,
+                    });
             }
             self.dirty = true;
         }
@@ -201,7 +220,11 @@ impl ZvukopadApp {
             } else {
                 1.0
             };
-            let name = if dev.is_default { None } else { Some(dev.name.as_str()) };
+            let name = if dev.is_default {
+                None
+            } else {
+                Some(dev.name.as_str())
+            };
             let saved_name = name.map(str::to_string);
             if let Err(e) = self
                 .audio
@@ -219,11 +242,13 @@ impl ZvukopadApp {
                     self.config.output_devices[1].volume = volume;
                     self.config.output_devices[1].enabled = true;
                 } else {
-                    self.config.output_devices.push(crate::config::OutputDeviceConfig {
-                        name: saved_name,
-                        volume,
-                        enabled: true,
-                    });
+                    self.config
+                        .output_devices
+                        .push(crate::config::OutputDeviceConfig {
+                            name: saved_name,
+                            volume,
+                            enabled: true,
+                        });
                 }
             }
         }
@@ -275,7 +300,7 @@ impl ZvukopadApp {
     fn stop_entry(&mut self, index: usize) {
         if let Some(entry) = self.config.sounds.get(index) {
             self.audio.borrow_mut().stop(entry.id);
-            self.status = format!("⏹ {}", entry.name);
+            self.status = format!("■ {}", entry.name);
         }
     }
 
@@ -333,7 +358,12 @@ impl ZvukopadApp {
             let name = &self.config.output_devices[1].name;
             match name {
                 None => 0,
-                Some(n) => self.devices.iter().position(|d| &d.name == n).map(|i| i + 1).unwrap_or(0),
+                Some(n) => self
+                    .devices
+                    .iter()
+                    .position(|d| &d.name == n)
+                    .map(|i| i + 1)
+                    .unwrap_or(0),
             }
         } else {
             0
@@ -344,8 +374,11 @@ impl ZvukopadApp {
 
 impl eframe::App for ZvukopadApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        // Применяем тему «спокойный тёмный Material 3».
-        theme::apply_visuals(ctx, true);
+        // Применяем тему «спокойный тёмный Material 3» один раз за сессию.
+        if !self.theme_applied {
+            theme::apply_visuals(ctx, true);
+            self.theme_applied = true;
+        }
 
         // 0. Периодически обновляем список устройств (каждые 5 секунд).
         self.refresh_devices_if_needed();
@@ -361,7 +394,7 @@ impl eframe::App for ZvukopadApp {
                 }
                 HotkeyAction::StopAll => {
                     self.audio.borrow_mut().stop_all();
-                    self.status = "⏹ Все остановлено (гл. клавиша)".into();
+                    self.status = "■ Все остановлено (гл. клавиша)".into();
                 }
                 HotkeyAction::Ptt => {}
             }
@@ -373,7 +406,14 @@ impl eframe::App for ZvukopadApp {
         // 3. Чистка завершившихся звуков + проверка PTT.
         self.audio.borrow_mut().cleanup_finished();
 
-        ctx.request_repaint_after(std::time::Duration::from_millis(50));
+        // Пока играет звук (или ждём отпускания PTT) обновляемся 20 раз в
+        // секунду, в покое — 4 раза: интерфейс не жжёт CPU вхолостую.
+        let busy = self.audio.borrow().needs_periodic_wakeup() || self.capturing.is_some();
+        ctx.request_repaint_after(std::time::Duration::from_millis(if busy {
+            50
+        } else {
+            250
+        }));
 
         // 4. Самая нижняя панель — ссылка на донат (слева).
         egui::TopBottomPanel::bottom("donate_bar").show(ctx, |ui| {
@@ -397,39 +437,41 @@ impl eframe::App for ZvukopadApp {
                     .inner_margin(egui::Margin::symmetric(16, 0)),
             )
             .show(ctx, |ui| {
-            card_frame().show(ui, |ui| {
-                ui.set_min_width(ui.available_width());
-                ui.add(
-                    egui::Label::new(
-                        egui::RichText::new(&self.status)
-                            .size(FONT_BODY)
-                            .color(dark::secondary()),
-                    )
-                    .wrap(),
-                );
+                card_frame().show(ui, |ui| {
+                    ui.set_min_width(ui.available_width());
+                    ui.add(
+                        egui::Label::new(
+                            egui::RichText::new(&self.status)
+                                .size(FONT_BODY)
+                                .color(dark::secondary()),
+                        )
+                        .wrap(),
+                    );
 
-                let playing = self.audio.borrow().playing_names();
-                if !playing.is_empty() {
-                    ui.add_space(4.0);
-                    ui.horizontal_wrapped(|ui| {
-                        ui.label(
-                            egui::RichText::new("Играет:").size(FONT_BODY).color(dark::muted()),
-                        );
-                        ui.label(
-                            egui::RichText::new(
-                                playing
-                                    .iter()
-                                    .map(|(_, n)| n.clone())
-                                    .collect::<Vec<_>>()
-                                    .join(", "),
-                            )
-                            .size(FONT_BODY)
-                            .color(dark::text()),
-                        );
-                    });
-                }
+                    let playing = self.audio.borrow().playing_names();
+                    if !playing.is_empty() {
+                        ui.add_space(4.0);
+                        ui.horizontal_wrapped(|ui| {
+                            ui.label(
+                                egui::RichText::new("Играет:")
+                                    .size(FONT_BODY)
+                                    .color(dark::muted()),
+                            );
+                            ui.label(
+                                egui::RichText::new(
+                                    playing
+                                        .iter()
+                                        .map(|(_, n)| n.clone())
+                                        .collect::<Vec<_>>()
+                                        .join(", "),
+                                )
+                                .size(FONT_BODY)
+                                .color(dark::text()),
+                            );
+                        });
+                    }
+                });
             });
-        });
 
         // 6. Настройки (правая панель).
         egui::SidePanel::right("settings")
@@ -494,7 +536,9 @@ impl ZvukopadApp {
             match capture {
                 CaptureTarget::Sound(idx) => {
                     if let Some(e) = self.config.sounds.get_mut(idx) {
-                        self.hotkeys.borrow_mut().unregister(HotkeyAction::Play(e.id));
+                        self.hotkeys
+                            .borrow_mut()
+                            .unregister(HotkeyAction::Play(e.id));
                         e.hotkey = None;
                     }
                     self.dirty = true;
@@ -524,7 +568,11 @@ impl ZvukopadApp {
         let apply_result = match capture {
             CaptureTarget::Sound(idx) => {
                 if let Some(e) = self.config.sounds.get_mut(idx) {
-                    match self.hotkeys.borrow_mut().register(HotkeyAction::Play(e.id), &hk) {
+                    match self
+                        .hotkeys
+                        .borrow_mut()
+                        .register(HotkeyAction::Play(e.id), &hk)
+                    {
                         Ok(()) => {
                             e.hotkey = Some(hk);
                             self.dirty = true;
@@ -536,7 +584,11 @@ impl ZvukopadApp {
                     Err("Запись не найдена".into())
                 }
             }
-            CaptureTarget::StopAll => match self.hotkeys.borrow_mut().register(HotkeyAction::StopAll, &hk) {
+            CaptureTarget::StopAll => match self
+                .hotkeys
+                .borrow_mut()
+                .register(HotkeyAction::StopAll, &hk)
+            {
                 Ok(()) => {
                     self.config.stop_all_hotkey = Some(hk);
                     self.dirty = true;
@@ -614,11 +666,13 @@ impl ZvukopadApp {
                 if !self.config.output_devices.is_empty() {
                     self.config.output_devices[0].volume = mv;
                 } else {
-                    self.config.output_devices.push(crate::config::OutputDeviceConfig {
-                        name: None,
-                        volume: mv,
-                        enabled: true,
-                    });
+                    self.config
+                        .output_devices
+                        .push(crate::config::OutputDeviceConfig {
+                            name: None,
+                            volume: mv,
+                            enabled: true,
+                        });
                 }
                 self.audio.borrow_mut().set_device_volume("main", mv).ok();
                 self.dirty = true;
@@ -645,7 +699,10 @@ impl ZvukopadApp {
                 .show_ui(ui, |ui| {
                     let mut new_monitor_device = self.selected_monitor_device;
                     for (i, name) in mon_names.iter().enumerate() {
-                        if ui.selectable_label(self.selected_monitor_device == i, name).clicked() {
+                        if ui
+                            .selectable_label(self.selected_monitor_device == i, name)
+                            .clicked()
+                        {
                             new_monitor_device = i;
                         }
                     }
@@ -669,13 +726,18 @@ impl ZvukopadApp {
                     if self.config.output_devices.len() > 1 {
                         self.config.output_devices[1].volume = mv;
                     } else {
-                        self.config.output_devices.push(crate::config::OutputDeviceConfig {
-                            name: None,
-                            volume: mv,
-                            enabled: true,
-                        });
+                        self.config
+                            .output_devices
+                            .push(crate::config::OutputDeviceConfig {
+                                name: None,
+                                volume: mv,
+                                enabled: true,
+                            });
                     }
-                    self.audio.borrow_mut().set_device_volume("monitor", mv).ok();
+                    self.audio
+                        .borrow_mut()
+                        .set_device_volume("monitor", mv)
+                        .ok();
                     self.dirty = true;
                 }
             }
@@ -725,7 +787,7 @@ impl ZvukopadApp {
                 if ui.button(btn_text).clicked() && !capturing_stop {
                     self.start_capture(CaptureTarget::StopAll);
                 }
-                if self.config.stop_all_hotkey.is_some() && small_text_button(ui, "✕").clicked() {
+                if self.config.stop_all_hotkey.is_some() && small_text_button(ui, "×").clicked() {
                     self.config.stop_all_hotkey = None;
                     self.hotkeys.borrow_mut().unregister(HotkeyAction::StopAll);
                     self.dirty = true;
@@ -753,7 +815,7 @@ impl ZvukopadApp {
                 if ui.button(btn_text).clicked() && !capturing_ptt {
                     self.start_capture(CaptureTarget::Ptt);
                 }
-                if self.config.ptt_hotkey.is_some() && small_text_button(ui, "✕").clicked() {
+                if self.config.ptt_hotkey.is_some() && small_text_button(ui, "×").clicked() {
                     self.config.ptt_hotkey = None;
                     self.audio.borrow_mut().set_ptt_hotkey(None);
                     self.dirty = true;
@@ -768,7 +830,8 @@ impl ZvukopadApp {
                 );
                 if resp.changed() {
                     self.dirty = true;
-                    self.audio.borrow_mut()
+                    self.audio
+                        .borrow_mut()
                         .set_ptt_release_delay(self.config.ptt_release_delay_ms);
                 }
             });
@@ -786,7 +849,7 @@ impl ZvukopadApp {
         ui.horizontal(|ui| {
             app_title(ui, "Звукопад");
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                if pill_button(ui, "➕ Добавить звук").clicked() {
+                if pill_button(ui, "+ Добавить звук").clicked() {
                     self.edit = Some(PendingEdit {
                         index: self.config.sounds.len(),
                         name: String::new(),
@@ -794,7 +857,7 @@ impl ZvukopadApp {
                         volume: 1.0,
                     });
                 }
-                if text_button(ui, "⏹ Остановить всё").clicked() {
+                if text_button(ui, "■ Остановить всё").clicked() {
                     self.audio.borrow_mut().stop_all();
                     self.status = "Всё остановлено".into();
                 }
@@ -812,178 +875,212 @@ impl ZvukopadApp {
             ui.vertical_centered(|ui| {
                 caption(ui, "Список пуст.");
                 ui.add_space(8.0);
-                caption(ui, "Нажмите «➕ Добавить звук» вверху справа.");
+                caption(ui, "Нажмите «+ Добавить звук» вверху справа.");
             });
             return;
         }
 
         let available_width = ui.available_width();
-        let min_card_w = 260.0;
-        let cols = ((available_width / min_card_w).ceil() as usize).max(1);
+        // Карточки не должны быть уже ~300 px: два столбца при окне 1200 px.
+        let min_card_w = 300.0;
+        let cols = (((available_width + PAD_BETWEEN) / (min_card_w + PAD_BETWEEN)).floor()
+            as usize)
+            .max(1);
+        let cell_width = ((available_width - PAD_BETWEEN * (cols.saturating_sub(1) as f32))
+            / cols as f32)
+            .max(200.0);
 
-        egui::Grid::new("sound_grid")
-            .num_columns(cols)
-            .spacing([PAD_BETWEEN, PAD_BETWEEN])
+        // Список звуков прокручивается: иначе при большом количестве записей
+        // нижние карточки просто обрезались бы краем панели.
+        egui::ScrollArea::vertical()
+            .auto_shrink([false, false])
             .show(ui, |ui| {
-                let mut to_play: Option<usize> = None;
-                let mut to_stop: Option<usize> = None;
-                let mut to_capture: Option<usize> = None;
-                let mut to_remove: Option<usize> = None;
-                let mut to_edit: Option<usize> = None;
-                let mut to_clear_hotkey: Option<usize> = None;
-                let mut volume_changes: Vec<(usize, f32)> = Vec::new();
+                ui.set_width(available_width);
+                egui::Grid::new("sound_grid")
+                    .num_columns(cols)
+                    .spacing([PAD_BETWEEN, PAD_BETWEEN])
+                    .show(ui, |ui| {
+                        let mut to_play: Option<usize> = None;
+                        let mut to_stop: Option<usize> = None;
+                        let mut to_capture: Option<usize> = None;
+                        let mut to_remove: Option<usize> = None;
+                        let mut to_edit: Option<usize> = None;
+                        let mut to_clear_hotkey: Option<usize> = None;
+                        let mut volume_changes: Vec<(usize, f32)> = Vec::new();
 
-                let playing_ids: Vec<u32> = self
-                    .audio
-                    .borrow()
-                    .playing_names()
-                    .into_iter()
-                    .map(|(id, _)| id)
-                    .collect();
+                        let playing_ids: Vec<u32> = self
+                            .audio
+                            .borrow()
+                            .playing_names()
+                            .into_iter()
+                            .map(|(id, _)| id)
+                            .collect();
 
-                for (i, entry) in self.config.sounds.iter().enumerate() {
-                    let playing = playing_ids.contains(&entry.id);
-                    let hotkey_text = entry
-                        .hotkey
-                        .as_ref()
-                        .map(hotkeys::hotkey_display)
-                        .unwrap_or_else(|| "—".to_string());
+                        for (i, entry) in self.config.sounds.iter().enumerate() {
+                            let playing = playing_ids.contains(&entry.id);
+                            let hotkey_text = entry
+                                .hotkey
+                                .as_ref()
+                                .map(hotkeys::hotkey_display)
+                                .unwrap_or_else(|| "—".to_string());
 
-                    // Карточка записи без внешнего отступа — расстояние между
-                    // карточками задаёт Grid spacing.
-                    egui::Frame::NONE
-                        .fill(dark::block())
-                        .corner_radius(CornerRadius::same(theme::CORNER_FIELD))
-                        .stroke(egui::Stroke::new(1.0_f32, dark::border()))
-                        .inner_margin(egui::vec2(PAD_CARD, PAD_CARD))
-                        .show(ui, |ui| {
-                            ui.set_min_width(240.0);
-                        ui.vertical(|ui| {
-                            ui.horizontal(|ui| {
-                                let label = if playing {
-                                    format!("⏸ {}", entry.name)
-                                } else {
-                                    format!("▶ {}", entry.name)
-                                };
-                                let btn = egui::Button::new(
-                                    egui::RichText::new(label)
-                                        .size(FONT_BODY)
-                                        .color(if playing { dark::success() } else { dark::text() })
-                                )
-                                    .fill(if playing { dark::success() } else { dark::accent() })
-                                    .stroke(egui::Stroke::new(
-                                        1.0_f32,
-                                        if playing { dark::success() } else { dark::accent_border() },
-                                    ))
-                                    .corner_radius(CornerRadius::same(theme::CORNER_PILL));
-                                if ui.add(btn).clicked() {
-                                    if playing {
-                                        to_stop = Some(i);
-                                    } else {
-                                        to_play = Some(i);
-                                    }
-                                }
-                                if ui.button("✎").clicked() {
-                                    to_edit = Some(i);
-                                }
-                                if ui.button("🗑").clicked() {
-                                    to_remove = Some(i);
-                                }
-                            });
-                            ui.add_space(8.0);
-                            ui.horizontal(|ui| {
-                                caption(ui, "Клавиша:");
-                                let capturing_now = self
-                                    .capturing
-                                    .map(|c| c == CaptureTarget::Sound(i))
-                                    .unwrap_or(false);
-                                let btn_text = if capturing_now {
-                                    "Нажмите… (Esc)".to_string()
-                                } else {
-                                    hotkey_text
-                                };
-                                if ui.button(btn_text).clicked() && !capturing_now {
-                                    to_capture = Some(i);
-                                }
-                                if entry.hotkey.is_some() && ui.small_button("✕").clicked() {
-                                    to_clear_hotkey = Some(i);
-                                }
-                            });
-                            ui.add_space(8.0);
-                            let mut v = entry.volume;
-                            let resp = ui.add(
-                                egui::Slider::new(&mut v, 0.0..=1.0)
-                                    .show_value(false)
-                                    .text("громкость"),
-                            );
-                            if resp.changed() {
-                                volume_changes.push((i, v));
+                            // Карточка записи без внешнего отступа — расстояние между
+                            // карточками задаёт Grid spacing.
+                            egui::Frame::NONE
+                                .fill(dark::block())
+                                .corner_radius(CornerRadius::same(theme::CORNER_FIELD))
+                                .stroke(egui::Stroke::new(1.0_f32, dark::border()))
+                                .inner_margin(egui::vec2(PAD_CARD, PAD_CARD))
+                                .show(ui, |ui| {
+                                    ui.set_width(cell_width - PAD_CARD * 2.0);
+                                    ui.vertical(|ui| {
+                                        ui.horizontal(|ui| {
+                                            let label = if playing {
+                                                format!("■ {}", entry.name)
+                                            } else {
+                                                format!("▶ {}", entry.name)
+                                            };
+                                            let btn = egui::Button::new(
+                                                egui::RichText::new(label)
+                                                    .size(FONT_BODY)
+                                                    .color(dark::accent_text()),
+                                            )
+                                            .fill(if playing {
+                                                dark::success()
+                                            } else {
+                                                dark::accent()
+                                            })
+                                            .stroke(egui::Stroke::new(
+                                                1.0_f32,
+                                                if playing {
+                                                    dark::success()
+                                                } else {
+                                                    dark::accent_border()
+                                                },
+                                            ))
+                                            .corner_radius(CornerRadius::same(theme::CORNER_PILL));
+                                            if ui.add(btn).clicked() {
+                                                if playing {
+                                                    to_stop = Some(i);
+                                                } else {
+                                                    to_play = Some(i);
+                                                }
+                                            }
+                                            if small_text_button(ui, "Изменить").clicked() {
+                                                to_edit = Some(i);
+                                            }
+                                            if small_text_button(ui, "Удалить").clicked() {
+                                                to_remove = Some(i);
+                                            }
+                                        });
+                                        ui.add_space(8.0);
+                                        ui.horizontal(|ui| {
+                                            caption(ui, "Клавиша:");
+                                            let capturing_now = self
+                                                .capturing
+                                                .map(|c| c == CaptureTarget::Sound(i))
+                                                .unwrap_or(false);
+                                            let btn_text = if capturing_now {
+                                                "Нажмите… (Esc)".to_string()
+                                            } else {
+                                                hotkey_text
+                                            };
+                                            if ui.button(btn_text).clicked() && !capturing_now {
+                                                to_capture = Some(i);
+                                            }
+                                            if entry.hotkey.is_some()
+                                                && small_text_button(ui, "×").clicked()
+                                            {
+                                                to_clear_hotkey = Some(i);
+                                            }
+                                        });
+                                        ui.add_space(8.0);
+                                        let mut v = entry.volume;
+                                        let resp = ui.add(
+                                            egui::Slider::new(&mut v, 0.0..=1.0)
+                                                .show_value(false)
+                                                .text("громкость"),
+                                        );
+                                        if resp.changed() {
+                                            volume_changes.push((i, v));
+                                        }
+                                        ui.add_space(4.0);
+                                        ui.add(
+                                            egui::Label::new(
+                                                egui::RichText::new(&entry.path)
+                                                    .small()
+                                                    .color(dark::muted()),
+                                            )
+                                            .truncate(),
+                                        );
+
+                                        // Точка статуса: играет или остановлен.
+                                        ui.add_space(8.0);
+                                        if playing {
+                                            status_row(ui, dark::success(), "Играет");
+                                        } else {
+                                            status_row(ui, dark::muted(), "Готов");
+                                        }
+                                    });
+                                });
+                            // Grid сам не переносит строки: закрываем строку только
+                            // на последней карточке ряда, иначе все звуки встают в
+                            // один столбец.
+                            if (i + 1) % cols == 0 || i + 1 == self.config.sounds.len() {
+                                ui.end_row();
                             }
-                            ui.add_space(4.0);
-                            ui.add(
-                                egui::Label::new(
-                                    egui::RichText::new(&entry.path)
-                                        .small()
-                                        .color(dark::muted()),
-                                )
-                                .truncate(),
-                            );
+                        }
 
-                            // Точка статуса: играет или остановлен.
-                            ui.add_space(8.0);
-                            if playing {
-                                status_row(ui, dark::success(), "Играет");
-                            } else {
-                                status_row(ui, dark::muted(), "Готов");
+                        // Применяем отложенные действия.
+                        if let Some(i) = to_play {
+                            self.play_entry(i);
+                        }
+                        if let Some(i) = to_stop {
+                            self.stop_entry(i);
+                        }
+                        if let Some(i) = to_capture {
+                            self.start_capture(CaptureTarget::Sound(i));
+                        }
+                        if let Some(i) = to_remove {
+                            self.remove_entry(i);
+                        }
+                        if let Some(i) = to_edit {
+                            if let Some(e) = self.config.sounds.get(i).cloned() {
+                                self.edit = Some(PendingEdit {
+                                    index: i,
+                                    name: e.name,
+                                    path: e.path,
+                                    volume: e.volume,
+                                });
                             }
-                        });
+                        }
+                        if let Some(i) = to_clear_hotkey {
+                            if let Some(e) = self.config.sounds.get_mut(i) {
+                                self.hotkeys
+                                    .borrow_mut()
+                                    .unregister(HotkeyAction::Play(e.id));
+                                e.hotkey = None;
+                                self.dirty = true;
+                            }
+                        }
+                        for (i, v) in volume_changes {
+                            if let Some(e) = self.config.sounds.get_mut(i) {
+                                e.volume = v;
+                                self.audio.borrow_mut().set_entry_volume(e.id, v);
+                                self.dirty = true;
+                            }
+                        }
                     });
-                    ui.end_row();
-                }
-
-                // Применяем отложенные действия.
-                if let Some(i) = to_play {
-                    self.play_entry(i);
-                }
-                if let Some(i) = to_stop {
-                    self.stop_entry(i);
-                }
-                if let Some(i) = to_capture {
-                    self.start_capture(CaptureTarget::Sound(i));
-                }
-                if let Some(i) = to_remove {
-                    self.remove_entry(i);
-                }
-                if let Some(i) = to_edit {
-                    if let Some(e) = self.config.sounds.get(i).cloned() {
-                        self.edit = Some(PendingEdit {
-                            index: i,
-                            name: e.name,
-                            path: e.path,
-                            volume: e.volume,
-                        });
-                    }
-                }
-                if let Some(i) = to_clear_hotkey {
-                    if let Some(e) = self.config.sounds.get_mut(i) {
-                        self.hotkeys.borrow_mut().unregister(HotkeyAction::Play(e.id));
-                        e.hotkey = None;
-                        self.dirty = true;
-                    }
-                }
-                for (i, v) in volume_changes {
-                    if let Some(e) = self.config.sounds.get_mut(i) {
-                        e.volume = v;
-                        self.audio.borrow_mut().set_entry_volume(e.id, v);
-                        self.dirty = true;
-                    }
-                }
             });
     }
 
     fn remove_entry(&mut self, index: usize) {
         if let Some(entry) = self.config.sounds.get(index) {
-            self.hotkeys.borrow_mut().unregister(HotkeyAction::Play(entry.id));
+            self.hotkeys
+                .borrow_mut()
+                .unregister(HotkeyAction::Play(entry.id));
+            // Удалённая запись не должна продолжать играть в фоне.
+            self.audio.borrow_mut().stop(entry.id);
         }
         self.config.sounds.remove(index);
         self.dirty = true;
@@ -1013,10 +1110,7 @@ impl ZvukopadApp {
                         ui.text_edit_singleline(&mut edit.path);
                         if ui.button("Обзор…").clicked() {
                             if let Some(path) = rfd::FileDialog::new()
-                                .add_filter(
-                                    "Звук",
-                                    &["mp3", "wav", "ogg", "flac", "m4a", "aac"],
-                                )
+                                .add_filter("Звук", &["mp3", "wav", "ogg", "flac", "m4a", "aac"])
                                 .pick_file()
                             {
                                 edit.path = path.display().to_string();
@@ -1078,10 +1172,10 @@ impl ZvukopadApp {
 
     /// Подробная подсказка с инструкцией и ссылкой на VB-Cable.
     fn draw_help(&self, ui: &mut egui::Ui) {
-        egui::CollapsingHeader::new("📖 Как пользоваться Звукопадом")
+        egui::CollapsingHeader::new("Как пользоваться Звукопадом")
             .show(ui, |ui| {
                 card_frame().show(ui, |ui| {
-                    body(ui, "1. Добавьте звуки через «➕ Добавить звук».");
+                    body(ui, "1. Добавьте звуки через «+ Добавить звук».");
                     ui.add_space(4.0);
                     body(ui, "2. Назначьте горячие клавиши — любая комбинация или просто одна клавиша (например Numpad1).");
                     ui.add_space(4.0);
@@ -1089,7 +1183,7 @@ impl ZvukopadApp {
                     ui.add_space(2.0);
                     body(ui, "   • Скачайте и установите VB-Audio Virtual Cable:");
                     ui.hyperlink_to(
-                        "   🌐 https://vb-audio.com/Cable/",
+                        "   https://vb-audio.com/Cable/",
                         "https://vb-audio.com/Cable/",
                     );
                     ui.add_space(2.0);

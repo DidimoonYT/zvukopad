@@ -68,6 +68,14 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           Copy-Item target/release/zvukopad.exe zvukopad.exe
 
+      # Тесты ловят рассинхрон версий (Cargo.toml ↔ resource.rc) и другие
+      # регрессии до публикации релиза.
+      - name: Run tests
+        shell: pwsh
+        run: |
+          cargo test --release 2>&1 | Tee-Object -FilePath test.log
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
       # Диагностика: при ошибке публикуем хвост лога в issue (публично читаемо).
       - name: Publish build log on failure
         if: failure()
@@ -75,8 +83,16 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          $tail = if (Test-Path build.log) { (Get-Content build.log -Tail 400) -join "`n" } else { 'build.log отсутствует' }
-          $body = "Лог сборки (последние 400 строк):`n``````n$tail`n``````"
+          $parts = @()
+          foreach ($name in @('build.log', 'test.log')) {
+            if (Test-Path $name) {
+              $parts += "== $name =="
+              $parts += (Get-Content $name -Tail 400) -join "`n"
+            }
+          }
+          if ($parts.Count -eq 0) { $parts = @('Логи сборки отсутствуют') }
+          $body = (($parts -join "`n") -replace '```', "'''")
+          $body = "Последние строки сборки:`n``````n$body`n``````"
           $body | Out-File -FilePath issue-body.md -Encoding utf8
           gh issue create --repo "${{ github.repository }}" --title "[CI] Ошибка сборки v${{ steps.version.outputs.VERSION }} (run ${{ github.run_id }})" --body-file issue-body.md
 

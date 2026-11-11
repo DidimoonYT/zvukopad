@@ -50,22 +50,44 @@ impl HotkeyManager {
 
     /// Регистрирует горячую клавишу для действия. Если у действия уже была клавиша —
     /// снимает прежнюю. Возвращает ошибку, если комбинация занята другим действием.
+    ///
+    /// Прежняя клавиша снимается только после того, как новая прошла проверку:
+    /// если регистрация не удалась (комбинацию занял другой процесс), рабочая
+    /// настройка остаётся действующей и не расходится с конфигом.
     pub fn register(&mut self, action: HotkeyAction, hk: &HotkeyConfig) -> Result<(), String> {
         if hk.code.is_empty() {
             return Err("Код клавиши не может быть пустым".into());
         }
-        self.unregister(action);
 
         let hotkey = build_hotkey(hk)?;
-        if let Some(other) = self.action_map.get(&hotkey.id()) {
-            return Err(format!("Комбинация занята другим действием: {other:?}"));
+        let id = hotkey.id();
+        if let Some(other) = self.action_map.get(&id) {
+            if *other != action {
+                return Err(format!("Комбинация занята другим действием: {other:?}"));
+            }
         }
-        self.manager
-            .register(hotkey)
-            .map_err(|e| format!("Не удалось зарегистрировать клавишу: {e}"))?;
-        self.action_map.insert(hotkey.id(), action);
-        self.registered.insert(action, hotkey);
-        Ok(())
+
+        let previous = self.registered.get(&action).copied();
+        self.unregister(action);
+
+        match self.manager.register(hotkey) {
+            Ok(()) => {
+                self.action_map.insert(id, action);
+                self.registered.insert(action, hotkey);
+                Ok(())
+            }
+            Err(e) => {
+                // Возвращаем прежнюю клавишу, чтобы действие не осталось
+                // без хоткея из-за неудачной попытки.
+                if let Some(prev) = previous {
+                    if self.manager.register(prev).is_ok() {
+                        self.action_map.insert(prev.id(), action);
+                        self.registered.insert(action, prev);
+                    }
+                }
+                Err(format!("Не удалось зарегистрировать клавишу: {e}"))
+            }
+        }
     }
 
     /// Снимает регистрацию горячей клавиши действия.
@@ -112,8 +134,8 @@ fn build_hotkey(hk: &HotkeyConfig) -> Result<HotKey, String> {
             other => return Err(format!("Неизвестный модификатор: {other}")),
         }
     }
-    let code = code_from_str(&hk.code)
-        .ok_or_else(|| format!("Неизвестная клавиша: {}", hk.code))?;
+    let code =
+        code_from_str(&hk.code).ok_or_else(|| format!("Неизвестная клавиша: {}", hk.code))?;
     Ok(HotKey::new(
         if mods.is_empty() { None } else { Some(mods) },
         code,

@@ -2,7 +2,7 @@
 
 [package]
 name = "zvukopad"
-version = "1.0.20"
+version = "1.0.21"
 edition = "2021"
 description = "Звукопад — бесплатный аналог Soundpad: звуковая панель с горячими клавишами, PTT и выбором устройств вывода"
 authors = ["DidimoonYT"]
