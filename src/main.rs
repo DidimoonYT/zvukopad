@@ -11,6 +11,7 @@ mod config;
 mod hotkeys;
 mod kb_capture;
 mod ptt;
+mod theme;
 mod version;
 
 use app::ZvukopadApp;

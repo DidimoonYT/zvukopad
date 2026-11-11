@@ -1,12 +1,18 @@
 //! Графический интерфейс приложения на egui.
 //!
-//! Главное окно: список звуковых записей, выбор устройств вывода,
-//! мониторинг, мастер-громкость, глобальные горячие клавиши (стоп/PTT)
-//! и подробная подсказка по использованию.
+//! Стиль: «спокойный тёмный Material 3» (см. src/theme.rs).
+//! Тёмно-графитовый фон, крупные скруглённые карточки без теней,
+//! один акцентный сине-перивинкловый цвет, пилюльные кнопки,
+//! цветные точки статуса, много воздуха.
 
 use crate::audio::{self, AudioEngine, DEFAULT_DEVICE_NAME, NO_DEVICE_NAME};
 use crate::config::{Config, HotkeyConfig, SoundEntry};
 use crate::hotkeys::{self, HotkeyAction, HotkeyManager};
+use crate::theme::{
+    self, card_frame, card_title, caption, dark, pill_button, secondary_text,
+    small_text_button, status_row, FONT_BODY, FONT_CAPTION, FONT_CARD_HEADER,
+    FONT_TITLE, PAD_BETWEEN, PAD_CARD, PAD_SCREEN,
+};
 use eframe::egui;
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -65,7 +71,7 @@ impl ZvukopadApp {
         let hotkeys = Rc::new(RefCell::new(hotkey_manager));
 
         let devices = audio::AudioEngine::list_output_devices();
-        
+
         // Загружаем сохранённые устройства из конфига
         let selected_main_device = if !config.output_devices.is_empty() {
             let name = &config.output_devices[0].name;
@@ -76,12 +82,16 @@ impl ZvukopadApp {
         } else {
             0
         };
-        
+
         let selected_monitor_device = if config.output_devices.len() > 1 {
             let name = &config.output_devices[1].name;
             match name {
                 None => 0,
-                Some(n) => devices.iter().position(|d| d.name == *n).map(|i| i + 1).unwrap_or(0),
+                Some(n) => devices
+                    .iter()
+                    .position(|d| d.name == *n)
+                    .map(|i| i + 1)
+                    .unwrap_or(0),
             }
         } else {
             0
@@ -105,35 +115,31 @@ impl ZvukopadApp {
 
         // Применяем настройки устройств при старте
         app.apply_devices_from_config();
-        // Мастер-громкость задаётся движку один раз здесь: раньше она жила
-        // в двух местах, и правка любой другой громкости сбрасывала её на 100 %.
+        // Мастер-громкость задаётся движку один раз здесь.
         app.audio.borrow_mut().set_master_volume(app.config.master_volume);
         app.audio.borrow_mut().set_ptt_hotkey(app.config.ptt_hotkey.clone());
-        app.audio.borrow_mut().set_ptt_release_delay(app.config.ptt_release_delay_ms);
+        app.audio.borrow_mut()
+            .set_ptt_release_delay(app.config.ptt_release_delay_ms);
         app.register_all_hotkeys();
         app
     }
 
     fn apply_devices_from_config(&mut self) {
-        // Пересобираем состав устройств с нуля.
         self.audio.borrow_mut().remove_all_devices();
 
-        // Основное устройство (индекс 0 в конфиге). Если конфига ещё нет —
-        // открываем системное устройство по умолчанию, чтобы звук вообще был.
         let main_cfg = self.config.output_devices.first().cloned();
         let (main_name, main_volume) = match &main_cfg {
             Some(cfg) => (cfg.name.clone(), cfg.volume),
             None => (None, 1.0),
         };
-        if let Err(e) =
-            self.audio
-                .borrow_mut()
-                .add_device("main", main_name.as_deref(), main_volume, true)
+        if let Err(e) = self
+            .audio
+            .borrow_mut()
+            .add_device("main", main_name.as_deref(), main_volume, true)
         {
             self.status = format!("Ошибка осн. устройства: {e}");
         }
 
-        // Мониторинг (индекс 1 в конфиге)
         let monitor_cfg = self.config.output_devices.get(1).cloned();
         if let Some(dev_cfg) = monitor_cfg {
             if dev_cfg.enabled {
@@ -163,8 +169,7 @@ impl ZvukopadApp {
             if let Err(e) = self.audio.borrow_mut().add_device("main", name, volume, true) {
                 self.status = format!("Ошибка осн. устройства: {e}");
             }
-            
-            // Сохраняем в конфиг (output_devices[0])
+
             if !self.config.output_devices.is_empty() {
                 self.config.output_devices[0].name = name.map(|s| s.to_string());
                 self.config.output_devices[0].volume = volume;
@@ -185,7 +190,6 @@ impl ZvukopadApp {
             return;
         }
         if self.selected_monitor_device == 0 {
-            // "нет"
             self.audio.borrow_mut().remove_device("monitor");
             if self.config.output_devices.len() > 1 {
                 self.config.output_devices[1].enabled = false;
@@ -196,9 +200,6 @@ impl ZvukopadApp {
             } else {
                 1.0
             };
-            // «Системное устройство по умолчанию» — псевдозапись списка:
-            // устройства с таким именем не существует, поэтому открываем
-            // устройство по умолчанию (None), а не ищем его по имени.
             let name = if dev.is_default { None } else { Some(dev.name.as_str()) };
             let saved_name = name.map(str::to_string);
             if let Err(e) = self
@@ -207,13 +208,11 @@ impl ZvukopadApp {
                 .add_device("monitor", name, volume, true)
             {
                 self.status = format!("Мониторинг: {e}");
-                // Сбрасываем выбор мониторинга в конфиге, т.к. устройство не открылось.
                 self.selected_monitor_device = 0;
                 if self.config.output_devices.len() > 1 {
                     self.config.output_devices[1].enabled = false;
                 }
             } else {
-                // Сохраняем в конфиг (output_devices[1])
                 if self.config.output_devices.len() > 1 {
                     self.config.output_devices[1].name = saved_name;
                     self.config.output_devices[1].volume = volume;
@@ -233,7 +232,6 @@ impl ZvukopadApp {
     fn register_all_hotkeys(&mut self) {
         let mut hk = self.hotkeys.borrow_mut();
         hk.unregister_all();
-        // Записи звуков.
         let entries: Vec<(u32, Option<HotkeyConfig>)> = self
             .config
             .sounds
@@ -247,7 +245,6 @@ impl ZvukopadApp {
                 }
             }
         }
-        // Глобальная клавиша «Стоп».
         if let Some(h) = &self.config.stop_all_hotkey {
             if let Err(e) = hk.register(HotkeyAction::StopAll, h) {
                 log::warn!("Не удалось зарегистрировать клавишу Стоп: {e}");
@@ -286,9 +283,7 @@ impl ZvukopadApp {
         self.status = "Нажмите любую клавишу (Esc — отмена, Backspace — убрать)".into();
     }
 
-    /// Сохраняет конфиг, если он изменился. Запись — не чаще раза в 1.5 с:
-    /// перетаскивание слайдера помечает `dirty` на каждом кадре, и без
-    /// дебаунса файл переписывался бы десятки раз в секунду.
+    /// Сохраняет конфиг, если он изменился. Запись — не чаще раза в 1.5 с.
     fn save_if_dirty(&mut self) {
         if !self.dirty {
             return;
@@ -298,15 +293,12 @@ impl ZvukopadApp {
         }
         self.last_save = Instant::now();
         match self.config.save() {
-            // Флаг снимаем только после успешной записи: иначе изменения
-            // считались бы сохранёнными и молча терялись при выходе.
             Ok(()) => self.dirty = false,
             Err(e) => self.status = format!("Не удалось сохранить: {e}"),
         }
     }
 
-    /// Раз в 5 секунд обновляет список устройств. Если набор устройств изменился,
-    /// пересинхронизирует выбранные индексы с конфигом.
+    /// Раз в 5 секунд обновляет список устройств.
     fn refresh_devices_if_needed(&mut self) {
         if self.last_device_refresh.elapsed().as_secs() < 5 {
             return;
@@ -314,7 +306,6 @@ impl ZvukopadApp {
         self.last_device_refresh = Instant::now();
 
         let new_devices = AudioEngine::list_output_devices();
-        // Быстрое сравнение по набору имён.
         let changed = new_devices.len() != self.devices.len()
             || new_devices
                 .iter()
@@ -324,10 +315,9 @@ impl ZvukopadApp {
             return;
         }
         log::info!("Список устройств изменился, обновляем.");
-        
+
         self.devices = new_devices;
-        
-        // Пересинхронизируем индексы по именам из конфига (output_devices).
+
         self.selected_main_device = if !self.config.output_devices.is_empty() {
             let name = &self.config.output_devices[0].name;
             match name {
@@ -337,7 +327,7 @@ impl ZvukopadApp {
         } else {
             0
         };
-        
+
         self.selected_monitor_device = if self.config.output_devices.len() > 1 {
             let name = &self.config.output_devices[1].name;
             match name {
@@ -353,6 +343,9 @@ impl ZvukopadApp {
 
 impl eframe::App for ZvukopadApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        // Применяем тему «спокойный тёмный Material 3».
+        theme::apply_visuals(ctx, true);
+
         // 0. Периодически обновляем список устройств (каждые 5 секунд).
         self.refresh_devices_if_needed();
 
@@ -369,11 +362,7 @@ impl eframe::App for ZvukopadApp {
                     self.audio.borrow_mut().stop_all();
                     self.status = "⏹ Все остановлено (гл. клавиша)".into();
                 }
-                HotkeyAction::Ptt => {
-                    // PTT-клавиша обрабатывается отдельно — не через глобальный хоткей,
-                    // а через прямую имитацию в audio.rs. Но если зарегистрирована,
-                    // игнорируем здесь (см. настройки).
-                }
+                HotkeyAction::Ptt => {}
             }
         }
 
@@ -387,35 +376,61 @@ impl eframe::App for ZvukopadApp {
 
         // 4. Самая нижняя панель — ссылка на донат (слева).
         egui::TopBottomPanel::bottom("donate_bar").show(ctx, |ui| {
+            ui.add_space(PAD_SCREEN);
             ui.horizontal(|ui| {
+                ui.add_space(PAD_SCREEN);
                 ui.hyperlink_to(
-                    "❤ Поддержать автора (DonationAlerts)",
+                    egui::RichText::new("❤ Поддержать автора (DonationAlerts)")
+                        .color(dark::accent()),
                     "https://www.donationalerts.com/r/didimoon",
                 );
             });
+            ui.add_space(PAD_SCREEN);
         });
 
         // 5. Статус-бар.
         egui::TopBottomPanel::bottom("status_bar").show(ctx, |ui| {
-            ui.horizontal(|ui| {
-                ui.label(&self.status);
-                let playing = self.audio.borrow().playing_names();
-                if !playing.is_empty() {
-                    ui.separator();
-                    ui.label("Играет:");
-                    ui.label(playing.iter().map(|(_, n)| n.clone()).collect::<Vec<_>>().join(", "));
-                }
+            card_frame().show(ui, |ui| {
+                ui.horizontal(|ui| {
+                    ui.add_space(PAD_CARD);
+                    ui.label(
+                        egui::RichText::new(&self.status)
+                            .size(FONT_BODY)
+                            .color(dark::secondary())
+                    );
+                    let playing = self.audio.borrow().playing_names();
+                    if !playing.is_empty() {
+                        ui.separator();
+                        ui.label(
+                            egui::RichText::new("Играет:").size(FONT_BODY).color(dark::muted())
+                        );
+                        ui.label(
+                            egui::RichText::new(
+                                playing.iter().map(|(_, n)| n.clone()).collect::<Vec<_>>().join(", ")
+                            )
+                            .size(FONT_BODY)
+                            .color(dark::text())
+                        );
+                    }
+                    ui.add_space(PAD_CARD);
+                });
             });
         });
 
         // 6. Настройки (правая панель).
-        egui::SidePanel::right("settings").show(ctx, |ui| {
-            self.draw_settings(ui);
-        });
+        egui::SidePanel::right("settings")
+            .default_width(340.0)
+            .show(ctx, |ui| {
+                card_frame().show(ui, |ui| {
+                    self.draw_settings(ui);
+                });
+            });
 
         // 7. Список звуков (центр).
         egui::CentralPanel::default().show(ctx, |ui| {
-            self.draw_sounds_list(ui);
+            card_frame().show(ui, |ui| {
+                self.draw_sounds_list(ui);
+            });
         });
 
         // 8. Модальное окно редактирования.
@@ -425,7 +440,7 @@ impl eframe::App for ZvukopadApp {
         self.save_if_dirty();
     }
 
-    /// Финальный сброс изменений на диск при выходе (дебаунс может не успеть).
+    /// Финальный сброс изменений на диск при выходе.
     fn on_exit(&mut self, _gl: Option<&eframe::glow::Context>) {
         if self.dirty {
             if let Err(e) = self.config.save() {
@@ -438,8 +453,6 @@ impl eframe::App for ZvukopadApp {
 
 impl ZvukopadApp {
     fn handle_capture(&mut self, _ctx: &egui::Context) {
-        // Debounce: не обрабатываем захват чаще чем раз в 150 мс,
-        // чтобы не поймать отпускание предыдущей клавиши.
         if self.last_capture_time.elapsed() < std::time::Duration::from_millis(150) {
             return;
         }
@@ -448,7 +461,6 @@ impl ZvukopadApp {
             return;
         };
 
-        // Отмена / очистка.
         if crate::kb_capture::is_escape_pressed() {
             self.capturing = None;
             self.status = "Отменено".into();
@@ -480,10 +492,8 @@ impl ZvukopadApp {
             return;
         }
 
-        // Захват основной клавиши + модификаторов напрямую через WinAPI.
-        // Это позволяет корректно различать Numpad и верхний ряд цифр.
         let Some(captured) = crate::kb_capture::poll_pressed() else {
-            return; // ни одна основная клавиша не нажата
+            return;
         };
 
         let hk = HotkeyConfig::new(captured.modifiers, captured.code);
@@ -526,7 +536,6 @@ impl ZvukopadApp {
     }
 
     fn draw_settings(&mut self, ui: &mut egui::Ui) {
-        // Прокручиваемая область, чтобы все настройки помещались в окно.
         egui::ScrollArea::vertical()
             .auto_shrink([false, false])
             .show(ui, |ui| {
@@ -535,132 +544,149 @@ impl ZvukopadApp {
     }
 
     fn draw_settings_inner(&mut self, ui: &mut egui::Ui) {
-        ui.heading("⚙ Настройки");
-        ui.add_space(4.0);
+        card_title(ui, "⚙ Настройки");
+        ui.add_space(PAD_BETWEEN);
 
         // --- Основное устройство вывода ---
-                ui.collapsing("🔊 Устройства вывода", |ui| {
-                    ui.label(
-                        "Основное устройство: звук пойдёт на это устройство (обычно VB-Cable для передачи в Discord/игры).",
-                    );
+        card_frame().show(ui, |ui| {
+            card_title(ui, "🔊 Основное устройство вывода");
+            ui.add_space(8.0);
+            body(
+                ui,
+                "Звук пойдёт на это устройство (обычно VB-Cable для передачи в Discord/игры).",
+            );
+            ui.add_space(PAD_BETWEEN);
 
-                    // Список всех устройств
-                    let display = self
-                        .devices
-                        .get(self.selected_main_device)
-                        .map(|d| d.name.as_str())
-                        .unwrap_or(DEFAULT_DEVICE_NAME);
+            let display = self
+                .devices
+                .get(self.selected_main_device)
+                .map(|d| d.name.as_str())
+                .unwrap_or(DEFAULT_DEVICE_NAME);
 
-                    egui::ComboBox::from_label("")
-                        .selected_text(display)
-                        .show_ui(ui, |ui| {
-                            let mut new_main_device = self.selected_main_device;
-                            for (i, device) in self.devices.iter().enumerate() {
-                                if ui.selectable_label(self.selected_main_device == i, &device.name).clicked() {
-                                    new_main_device = i;
-                                }
-                            }
-                            if new_main_device != self.selected_main_device {
-                                self.selected_main_device = new_main_device;
-                                self.dirty = true;
-                                self.apply_main_device();
-                            }
-                        });
-
-                    // Громкость основного устройства
-                    let mut mv = if !self.config.output_devices.is_empty() {
-                        self.config.output_devices[0].volume
-                    } else {
-                        1.0
-                    };
-                    if ui
-                        .add(egui::Slider::new(&mut mv, 0.0..=1.0).text("Громкость устройства 🔊"))
-                        .changed()
-                    {
-                        if !self.config.output_devices.is_empty() {
-                            self.config.output_devices[0].volume = mv;
-                        } else {
-                            self.config.output_devices.push(crate::config::OutputDeviceConfig {
-                                name: None,
-                                volume: mv,
-                                enabled: true,
-                            });
+            egui::ComboBox::from_label("")
+                .selected_text(display)
+                .show_ui(ui, |ui| {
+                    let mut new_main_device = self.selected_main_device;
+                    for (i, device) in self.devices.iter().enumerate() {
+                        if ui
+                            .selectable_label(self.selected_main_device == i, &device.name)
+                            .clicked()
+                        {
+                            new_main_device = i;
                         }
-                        self.audio.borrow_mut().set_device_volume("main", mv).ok();
+                    }
+                    if new_main_device != self.selected_main_device {
+                        self.selected_main_device = new_main_device;
                         self.dirty = true;
+                        self.apply_main_device();
                     }
                 });
 
-        ui.add_space(4.0);
+            ui.add_space(PAD_BETWEEN);
+
+            let mut mv = if !self.config.output_devices.is_empty() {
+                self.config.output_devices[0].volume
+            } else {
+                1.0
+            };
+            if ui
+                .add(
+                    egui::Slider::new(&mut mv, 0.0..=1.0)
+                        .text("Громкость устройства 🔊"),
+                )
+                .changed()
+            {
+                if !self.config.output_devices.is_empty() {
+                    self.config.output_devices[0].volume = mv;
+                } else {
+                    self.config.output_devices.push(crate::config::OutputDeviceConfig {
+                        name: None,
+                        volume: mv,
+                        enabled: true,
+                    });
+                }
+                self.audio.borrow_mut().set_device_volume("main", mv).ok();
+                self.dirty = true;
+            }
+        });
+
+        ui.add_space(PAD_BETWEEN);
 
         // --- Устройство мониторинга ---
-                ui.collapsing("🎧 Устройство мониторинга (доп. вывод)", |ui| {
-                    ui.label(
-                        "Дополнительное устройство для вывода звука. Можно выбрать
-                         ЛЮБОЕ устройство (наушники, колонки, второй кабель и т.д.),
-                         и звук будет идти на него одновременно с основным.",
-                    );
+        card_frame().show(ui, |ui| {
+            card_title(ui, "🎧 Устройство мониторинга");
+            ui.add_space(8.0);
+            body(
+                ui,
+                "Дополнительное устройство для вывода звука. Можно выбрать любое \
+                 устройство (наушники, колонки, второй кабель и т.д.), и звук \
+                 будет идти на него одновременно с основным.",
+            );
+            ui.add_space(PAD_BETWEEN);
 
-                    // Список: первый элемент — "нет"
-                    let mut mon_names = vec![NO_DEVICE_NAME.to_string()];
-                    mon_names.extend(self.devices.iter().map(|d| d.name.clone()));
+            let mut mon_names = vec![NO_DEVICE_NAME.to_string()];
+            mon_names.extend(self.devices.iter().map(|d| d.name.clone()));
 
-                    let display = if self.selected_monitor_device == 0 {
-                        NO_DEVICE_NAME
-                    } else {
-                        mon_names
-                            .get(self.selected_monitor_device)
-                            .map(|s| s.as_str())
-                            .unwrap_or(NO_DEVICE_NAME)
-                    };
+            let display = if self.selected_monitor_device == 0 {
+                NO_DEVICE_NAME
+            } else {
+                mon_names
+                    .get(self.selected_monitor_device)
+                    .map(|s| s.as_str())
+                    .unwrap_or(NO_DEVICE_NAME)
+            };
 
-                    egui::ComboBox::from_label("")
-                        .selected_text(display)
-                        .show_ui(ui, |ui| {
-                            let mut new_monitor_device = self.selected_monitor_device;
-                            for (i, name) in mon_names.iter().enumerate() {
-                                if ui.selectable_label(self.selected_monitor_device == i, name).clicked() {
-                                    new_monitor_device = i;
-                                }
-                            }
-                            if new_monitor_device != self.selected_monitor_device {
-                                self.selected_monitor_device = new_monitor_device;
-                                self.dirty = true;
-                                self.apply_monitoring_device();
-                            }
-                        });
-
-                    // Громкость мониторинга - показываем только если мониторинг включён
-                    if self.selected_monitor_device > 0 {
-                        let mut mv = if self.config.output_devices.len() > 1 {
-                            self.config.output_devices[1].volume
-                        } else {
-                            1.0
-                        };
-                        if ui
-                            .add(egui::Slider::new(&mut mv, 0.0..=1.0).text("Громкость мониторинга 🔊"))
-                            .changed()
-                        {
-                            if self.config.output_devices.len() > 1 {
-                                self.config.output_devices[1].volume = mv;
-                            } else {
-                                self.config.output_devices.push(crate::config::OutputDeviceConfig {
-                                    name: None,
-                                    volume: mv,
-                                    enabled: true,
-                                });
-                            }
-                            // Применяем сразу к играющим звукам (устройство monitor существует, так как selected_monitor_device > 0)
-                            self.audio.borrow_mut().set_device_volume("monitor", mv).ok();
-                            self.dirty = true;
+            egui::ComboBox::from_label("")
+                .selected_text(display)
+                .show_ui(ui, |ui| {
+                    let mut new_monitor_device = self.selected_monitor_device;
+                    for (i, name) in mon_names.iter().enumerate() {
+                        if ui.selectable_label(self.selected_monitor_device == i, name).clicked() {
+                            new_monitor_device = i;
                         }
+                    }
+                    if new_monitor_device != self.selected_monitor_device {
+                        self.selected_monitor_device = new_monitor_device;
+                        self.dirty = true;
+                        self.apply_monitoring_device();
                     }
                 });
 
-        ui.add_space(4.0);
+            if self.selected_monitor_device > 0 {
+                ui.add_space(PAD_BETWEEN);
+                let mut mv = if self.config.output_devices.len() > 1 {
+                    self.config.output_devices[1].volume
+                } else {
+                    1.0
+                };
+                if ui
+                    .add(
+                        egui::Slider::new(&mut mv, 0.0..=1.0)
+                            .text("Громкость мониторинга 🔊"),
+                    )
+                    .changed()
+                {
+                    if self.config.output_devices.len() > 1 {
+                        self.config.output_devices[1].volume = mv;
+                    } else {
+                        self.config.output_devices.push(crate::config::OutputDeviceConfig {
+                            name: None,
+                            volume: mv,
+                            enabled: true,
+                        });
+                    }
+                    self.audio.borrow_mut().set_device_volume("monitor", mv).ok();
+                    self.dirty = true;
+                }
+            }
+        });
+
+        ui.add_space(PAD_BETWEEN);
 
         // --- Мастер-громкость ---
-        ui.collapsing("🔊 Громкость", |ui| {
+        card_frame().show(ui, |ui| {
+            card_title(ui, "🔊 Мастер-громкость");
+            ui.add_space(8.0);
             let mut vol = self.config.master_volume;
             if ui
                 .add(egui::Slider::new(&mut vol, 0.0..=1.0).text("Мастер-громкость"))
@@ -668,15 +694,16 @@ impl ZvukopadApp {
             {
                 self.config.master_volume = vol;
                 self.dirty = true;
-                // Применяем немедленно к играющим звукам.
                 self.audio.borrow_mut().set_master_volume(vol);
             }
         });
 
-        ui.add_space(4.0);
+        ui.add_space(PAD_BETWEEN);
 
         // --- Поведение ---
-        ui.collapsing("⚙ Поведение", |ui| {
+        card_frame().show(ui, |ui| {
+            card_title(ui, "⚙ Поведение");
+            ui.add_space(8.0);
             let mut stop_on_replay = self.config.stop_on_replay;
             ui.checkbox(&mut stop_on_replay, "Перезапуск при повторном нажатии");
             if stop_on_replay != self.config.stop_on_replay {
@@ -685,10 +712,12 @@ impl ZvukopadApp {
             }
         });
 
-        ui.add_space(4.0);
+        ui.add_space(PAD_BETWEEN);
 
         // --- Глобальная клавиша «Стоп всё» ---
-        ui.collapsing("⏹ Глобальная клавиша «Остановить всё»", |ui| {
+        card_frame().show(ui, |ui| {
+            card_title(ui, "⏹ Глобальная клавиша «Остановить всё»");
+            ui.add_space(8.0);
             let stop_text = self
                 .config
                 .stop_all_hotkey
@@ -707,7 +736,8 @@ impl ZvukopadApp {
             if ui.button(btn_text).clicked() && !capturing_stop {
                 self.start_capture(CaptureTarget::StopAll);
             }
-            if ui.small_button("✕ убрать").clicked() {
+            ui.add_space(8.0);
+            if small_text_button(ui, "✕ убрать").clicked() {
                 if self.config.stop_all_hotkey.take().is_some() {
                     self.hotkeys.borrow_mut().unregister(HotkeyAction::StopAll);
                 }
@@ -715,16 +745,20 @@ impl ZvukopadApp {
             }
         });
 
-        ui.add_space(4.0);
+        ui.add_space(PAD_BETWEEN);
 
         // --- PTT-имитация микрофона ---
-        ui.collapsing("🎤 Имитация микрофона (Push-To-Talk)", |ui| {
-            ui.label(
-                "Укажите клавишу микрофона из вашей игры. Звукопад будет\n\
-                 автоматически нажимать её во время воспроизведения звука,\n\
-                 чтобы игра думала, что вы говорите. После окончания звука\n\
+        card_frame().show(ui, |ui| {
+            card_title(ui, "🎤 Имитация микрофона (Push-To-Talk)");
+            ui.add_space(8.0);
+            body(
+                ui,
+                "Укажите клавишу микрофона из вашей игры. Звукопад будет \
+                 автоматически нажимать её во время воспроизведения звука, \
+                 чтобы игра думала, что вы говорите. После окончания звука \
                  клавиша будет отпущена (с задержкой из поля ниже).",
             );
+            ui.add_space(PAD_BETWEEN);
             let ptt_text = self
                 .config
                 .ptt_hotkey
@@ -743,43 +777,50 @@ impl ZvukopadApp {
             if ui.button(btn_text).clicked() && !capturing_ptt {
                 self.start_capture(CaptureTarget::Ptt);
             }
-            if ui.small_button("✕ убрать").clicked() {
+            ui.add_space(8.0);
+            if small_text_button(ui, "✕ убрать").clicked() {
                 self.config.ptt_hotkey = None;
                 self.audio.borrow_mut().set_ptt_hotkey(None);
                 self.dirty = true;
             }
-            ui.add_space(4.0);
-                ui.horizontal(|ui| {
-                    ui.label("Задержка перед отпусканием (мс):");
-                    let resp = ui.add(egui::DragValue::new(&mut self.config.ptt_release_delay_ms).range(0..=5000));
-                    if resp.changed() {
-                        self.dirty = true;
-                        self.audio.borrow_mut().set_ptt_release_delay(self.config.ptt_release_delay_ms);
-                    }
-                });
+
+            ui.add_space(PAD_BETWEEN);
+            ui.horizontal(|ui| {
+                caption(ui, "Задержка перед отпусканием (мс):");
+                let resp = ui.add(
+                    egui::DragValue::new(&mut self.config.ptt_release_delay_ms).range(0..=5000),
+                );
+                if resp.changed() {
+                    self.dirty = true;
+                    self.audio.borrow_mut()
+                        .set_ptt_release_delay(self.config.ptt_release_delay_ms);
+                }
+            });
         });
 
-        ui.add_space(6.0);
+        ui.add_space(PAD_BETWEEN);
         ui.separator();
-        ui.add_space(6.0);
+        ui.add_space(PAD_BETWEEN);
 
-        // --- Кнопки ---
-        ui.horizontal(|ui| {
-            if ui.button("➕ Добавить звук").clicked() {
-                self.edit = Some(PendingEdit {
-                    index: self.config.sounds.len(),
-                    name: String::new(),
-                    path: String::new(),
-                    volume: 1.0,
-                });
-            }
-            if ui.button("⏹ Остановить всё").clicked() {
-                self.audio.borrow_mut().stop_all();
-                self.status = "Всё остановлено".into();
-            }
+        // --- Кнопки действий ---
+        card_frame().show(ui, |ui| {
+            ui.horizontal(|ui| {
+                if pill_button(ui, "➕ Добавить звук").clicked() {
+                    self.edit = Some(PendingEdit {
+                        index: self.config.sounds.len(),
+                        name: String::new(),
+                        path: String::new(),
+                        volume: 1.0,
+                    });
+                }
+                if pill_button(ui, "⏹ Остановить всё").clicked() {
+                    self.audio.borrow_mut().stop_all();
+                    self.status = "Всё остановлено".into();
+                }
+            });
         });
 
-        ui.add_space(8.0);
+        ui.add_space(PAD_BETWEEN);
 
         // --- Подсказка ---
         self.draw_help(ui);
@@ -787,26 +828,31 @@ impl ZvukopadApp {
 
     /// Центральная панель: список звуков.
     fn draw_sounds_list(&mut self, ui: &mut egui::Ui) {
-        ui.heading("🔊 Звукопад");
-        ui.label("Звуковая панель — нажмите ▶ или используйте горячие клавиши");
+        app_title(ui, "Звукопад");
         ui.add_space(8.0);
+        secondary_text(
+            ui,
+            "Звуковая панель — нажмите ▶ или используйте горячие клавиши",
+        );
+        ui.add_space(PAD_BETWEEN);
 
         if self.config.sounds.is_empty() {
             ui.add_space(40.0);
             ui.vertical_centered(|ui| {
-                ui.label("Список пуст.");
-                ui.label("Нажмите «➕ Добавить звук» в панели справа.");
+                caption(ui, "Список пуст.");
+                ui.add_space(8.0);
+                caption(ui, "Нажмите «➕ Добавить звук» в панели справа.");
             });
             return;
         }
 
         let available_width = ui.available_width();
-        let min_button_w = 220.0;
-        let cols = ((available_width / min_button_w).ceil() as usize).max(1);
+        let min_card_w = 260.0;
+        let cols = ((available_width / min_card_w).ceil() as usize).max(1);
 
         egui::Grid::new("sound_grid")
             .num_columns(cols)
-            .spacing([8.0, 8.0])
+            .spacing([PAD_BETWEEN, PAD_BETWEEN])
             .show(ui, |ui| {
                 let mut to_play: Option<usize> = None;
                 let mut to_stop: Option<usize> = None;
@@ -816,7 +862,13 @@ impl ZvukopadApp {
                 let mut to_clear_hotkey: Option<usize> = None;
                 let mut volume_changes: Vec<(usize, f32)> = Vec::new();
 
-                let playing_ids: Vec<u32> = self.audio.borrow().playing_names().into_iter().map(|(id, _)| id).collect();
+                let playing_ids: Vec<u32> = self
+                    .audio
+                    .borrow()
+                    .playing_names()
+                    .into_iter()
+                    .map(|(id, _)| id)
+                    .collect();
 
                 for (i, entry) in self.config.sounds.iter().enumerate() {
                     let playing = playing_ids.contains(&entry.id);
@@ -826,63 +878,102 @@ impl ZvukopadApp {
                         .map(hotkeys::hotkey_display)
                         .unwrap_or_else(|| "—".to_string());
 
-                    ui.vertical(|ui| {
-                        ui.set_min_width(210.0);
-                        ui.horizontal(|ui| {
-                            let label = if playing {
-                                format!("⏸ {}", entry.name)
-                            } else {
-                                format!("▶ {}", entry.name)
-                            };
-                            if ui.button(label).clicked() {
-                                if playing {
-                                    to_stop = Some(i);
+                    // Карточка записи без внешнего отступа — расстояние между
+                    // карточками задаёт Grid spacing.
+                    egui::Frame::none()
+                        .fill(dark::block())
+                        .rounding(egui::Rounding::same(theme::CORNER_FIELD))
+                        .stroke(egui::Stroke::new(1.0, dark::border()))
+                        .inner_margin(egui::vec2(PAD_CARD, PAD_CARD))
+                        .show(ui, |ui| {
+                            ui.set_min_width(240.0);
+                        ui.vertical(|ui| {
+                            ui.horizontal(|ui| {
+                                let label = if playing {
+                                    format!("⏸ {}", entry.name)
                                 } else {
-                                    to_play = Some(i);
+                                    format!("▶ {}", entry.name)
+                                };
+                                let btn = egui::Button::new(
+                                    egui::RichText::new(label)
+                                        .size(FONT_BODY)
+                                        .color(if playing { dark::success() } else { dark::text() })
+                                )
+                                    .frame(
+                                        egui::Frame::none()
+                                            .fill(if playing {
+                                                dark::success()
+                                            } else {
+                                                dark::accent()
+                                            })
+                                            .rounding(egui::Rounding::same(theme::CORNER_PILL))
+                                            .inner_margin(egui::vec2(12.0, 8.0))
+                                            .stroke(egui::Stroke::new(
+                                                1.0,
+                                                if playing { dark::success() } else { dark::accent_border() },
+                                            ))
+                                    );
+                                if ui.add(btn).clicked() {
+                                    if playing {
+                                        to_stop = Some(i);
+                                    } else {
+                                        to_play = Some(i);
+                                    }
                                 }
+                                if ui.button("✎").clicked() {
+                                    to_edit = Some(i);
+                                }
+                                if ui.button("🗑").clicked() {
+                                    to_remove = Some(i);
+                                }
+                            });
+                            ui.add_space(8.0);
+                            ui.horizontal(|ui| {
+                                caption(ui, "Клавиша:");
+                                let capturing_now = self
+                                    .capturing
+                                    .map(|c| c == CaptureTarget::Sound(i))
+                                    .unwrap_or(false);
+                                let btn_text = if capturing_now {
+                                    "Нажмите… (Esc)".to_string()
+                                } else {
+                                    hotkey_text
+                                };
+                                if ui.button(btn_text).clicked() && !capturing_now {
+                                    to_capture = Some(i);
+                                }
+                                if entry.hotkey.is_some() && ui.small_button("✕").clicked() {
+                                    to_clear_hotkey = Some(i);
+                                }
+                            });
+                            ui.add_space(8.0);
+                            let mut v = entry.volume;
+                            let resp = ui.add(
+                                egui::Slider::new(&mut v, 0.0..=1.0)
+                                    .show_value(false)
+                                    .text("громкость"),
+                            );
+                            if resp.changed() {
+                                volume_changes.push((i, v));
                             }
-                            if ui.button("✎").clicked() {
-                                to_edit = Some(i);
-                            }
-                            if ui.button("🗑").clicked() {
-                                to_remove = Some(i);
-                            }
-                        });
-                        ui.horizontal(|ui| {
-                            ui.label("Клавиша:");
-                            let capturing_now = self
-                                .capturing
-                                .map(|c| c == CaptureTarget::Sound(i))
-                                .unwrap_or(false);
-                            let btn_text = if capturing_now {
-                                "Нажмите… (Esc)".to_string()
+                            ui.add_space(4.0);
+                            ui.add(
+                                egui::Label::new(
+                                    egui::RichText::new(&entry.path)
+                                        .small()
+                                        .color(dark::muted()),
+                                )
+                                .truncate(),
+                            );
+
+                            // Точка статуса: играет или остановлен.
+                            ui.add_space(8.0);
+                            if playing {
+                                status_row(ui, dark::success(), "Играет");
                             } else {
-                                hotkey_text
-                            };
-                            if ui.button(btn_text).clicked() && !capturing_now {
-                                to_capture = Some(i);
-                            }
-                            if entry.hotkey.is_some() && ui.small_button("✕").clicked() {
-                                to_clear_hotkey = Some(i);
+                                status_row(ui, dark::muted(), "Готов");
                             }
                         });
-                        let mut v = entry.volume;
-                        let resp = ui.add(
-                            egui::Slider::new(&mut v, 0.0..=1.0)
-                                .show_value(false)
-                                .text("громкость"),
-                        );
-                        if resp.changed() {
-                            volume_changes.push((i, v));
-                        }
-                        ui.add(
-                            egui::Label::new(
-                                egui::RichText::new(&entry.path)
-                                    .small()
-                                    .color(egui::Color32::GRAY),
-                            )
-                            .truncate(),
-                        );
                     });
                     ui.end_row();
                 }
@@ -920,7 +1011,6 @@ impl ZvukopadApp {
                 for (i, v) in volume_changes {
                     if let Some(e) = self.config.sounds.get_mut(i) {
                         e.volume = v;
-                        // Применяем громкость немедленно к играющему звуку.
                         self.audio.borrow_mut().set_entry_volume(e.id, v);
                         self.dirty = true;
                     }
@@ -950,43 +1040,45 @@ impl ZvukopadApp {
             .resizable(false)
             .collapsible(false)
             .show(ctx, |ui| {
-                ui.label("Название:");
-                ui.text_edit_singleline(&mut edit.name);
+                card_frame().show(ui, |ui| {
+                    caption(ui, "Название:");
+                    ui.text_edit_singleline(&mut edit.name);
 
-                ui.add_space(6.0);
-                ui.label("Путь к звуковому файлу (mp3, wav, ogg, flac):");
-                ui.horizontal(|ui| {
-                    ui.text_edit_singleline(&mut edit.path);
-                    if ui.button("Обзор…").clicked() {
-                        if let Some(path) = rfd::FileDialog::new()
-                            .add_filter(
-                                "Звук",
-                                &["mp3", "wav", "ogg", "flac", "m4a", "aac"],
-                            )
-                            .pick_file()
-                        {
-                            edit.path = path.display().to_string();
-                            if edit.name.trim().is_empty() {
-                                if let Some(stem) = path.file_stem() {
-                                    edit.name = stem.to_string_lossy().to_string();
+                    ui.add_space(PAD_BETWEEN);
+                    caption(ui, "Путь к звуковому файлу (mp3, wav, ogg, flac):");
+                    ui.horizontal(|ui| {
+                        ui.text_edit_singleline(&mut edit.path);
+                        if ui.button("Обзор…").clicked() {
+                            if let Some(path) = rfd::FileDialog::new()
+                                .add_filter(
+                                    "Звук",
+                                    &["mp3", "wav", "ogg", "flac", "m4a", "aac"],
+                                )
+                                .pick_file()
+                            {
+                                edit.path = path.display().to_string();
+                                if edit.name.trim().is_empty() {
+                                    if let Some(stem) = path.file_stem() {
+                                        edit.name = stem.to_string_lossy().to_string();
+                                    }
                                 }
                             }
                         }
-                    }
-                });
+                    });
 
-                ui.add_space(6.0);
-                ui.label("Громкость:");
-                ui.add(egui::Slider::new(&mut edit.volume, 0.0..=1.0));
+                    ui.add_space(PAD_BETWEEN);
+                    caption(ui, "Громкость:");
+                    ui.add(egui::Slider::new(&mut edit.volume, 0.0..=1.0));
 
-                ui.add_space(10.0);
-                ui.horizontal(|ui| {
-                    if ui.button("Сохранить").clicked() {
-                        apply = true;
-                    }
-                    if ui.button("Отмена").clicked() {
-                        cancel = true;
-                    }
+                    ui.add_space(PAD_BETWEEN);
+                    ui.horizontal(|ui| {
+                        if pill_button(ui, "Сохранить").clicked() {
+                            apply = true;
+                        }
+                        if text_button(ui, "Отмена").clicked() {
+                            cancel = true;
+                        }
+                    });
                 });
             });
 
@@ -1023,40 +1115,35 @@ impl ZvukopadApp {
 
     /// Подробная подсказка с инструкцией и ссылкой на VB-Cable.
     fn draw_help(&self, ui: &mut egui::Ui) {
-        ui.collapsing("📖 Как пользоваться Звукопадом", |ui| {
-            ui.label("1. Добавьте звуки через «➕ Добавить звук».");
-            ui.add_space(2.0);
-            ui.label("2. Назначьте горячие клавиши — любая комбинация или просто одна клавиша (например Numpad1).");
-            ui.add_space(2.0);
-            ui.label(
-                "3. Чтобы звук шёл в микрофон (Discord, OBS, игры):\n\
-                 • Скачайте и установите VB-Audio Virtual Cable:\n",
-            );
-            ui.hyperlink_to(
-                "    🌐 https://vb-audio.com/Cable/",
-                "https://vb-audio.com/Cable/",
-            );
-            ui.add_space(2.0);
-            ui.label(
-                "   • В настройках Звукопада:\n\
-                     — Основное устройство: выберите «CABLE Input (VB-Audio…)»\n\
-                     — Устройство мониторинга: выберите ваши наушники (необязательно!)\n\
-                 • В Discord / OBS / игре установите микрофон: «CABLE Output»",
-            );
-            ui.add_space(2.0);
-            ui.label(
-                "4. Для автоматического включения микрофона:\n\
-                 • В разделе «Имитация микрофона» укажите клавишу,\n\
-                   которая открывает голосовой чат в вашей игре.\n\
-                 • Во время воспроизведения Звукопад автоматически\n\
-                   нажмёт эту клавишу — игра подумает, что вы говорите.",
-            );
-            ui.add_space(2.0);
-            ui.label(
-                "5. Глобальная клавиша «Остановить всё» позволяет мгновенно\n\
-                   остановить все играющие звуки одной кнопкой.",
-            );
-        });
+        egui::CollapsingHeader::new("📖 Как пользоваться Звукопадом")
+            .show(ui, |ui| {
+                card_frame().show(ui, |ui| {
+                    body(ui, "1. Добавьте звуки через «➕ Добавить звук».");
+                    ui.add_space(4.0);
+                    body(ui, "2. Назначьте горячие клавиши — любая комбинация или просто одна клавиша (например Numpad1).");
+                    ui.add_space(4.0);
+                    body(ui, "3. Чтобы звук шёл в микрофон (Discord, OBS, игры):");
+                    ui.add_space(2.0);
+                    body(ui, "   • Скачайте и установите VB-Audio Virtual Cable:");
+                    ui.hyperlink_to(
+                        "   🌐 https://vb-audio.com/Cable/",
+                        "https://vb-audio.com/Cable/",
+                    );
+                    ui.add_space(2.0);
+                    body(ui, "   • В настройках Звукопада:");
+                    body(ui, "      — Основное устройство: выберите «CABLE Input (VB-Audio…)»");
+                    body(ui, "      — Устройство мониторинга: выберите ваши наушники (необязательно!)");
+                    body(ui, "   • В Discord / OBS / игре установите микрофон: «CABLE Output»");
+                    ui.add_space(4.0);
+                    body(ui, "4. Для автоматического включения микрофона:");
+                    body(ui, "   • В разделе «Имитация микрофона» укажите клавишу,");
+                    body(ui, "      которая открывает голосовой чат в вашей игре.");
+                    body(ui, "   • Во время воспроизведения Звукопад автоматически");
+                    body(ui, "      нажмёт эту клавишу — игра подумает, что вы говорите.");
+                    ui.add_space(4.0);
+                    body(ui, "5. Глобальная клавиша «Остановить всё» позволяет мгновенно");
+                    body(ui, "   остановить все играющие звуки одной кнопкой.");
+                });
+            });
     }
 }
-
