@@ -13,7 +13,13 @@ permissions:
 
 jobs:
   build-and-release:
-    runs-on: ubuntu-latest
+    # Нативный Windows-раннер: MSVC, rc.exe, link.exe уже на месте —
+    # не нужны mingw/apt-get и кросс-компиляция.
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: bash
+
     steps:
       - uses: actions/checkout@v4
         with:
@@ -34,30 +40,19 @@ jobs:
             git push origin "v${{ steps.version.outputs.VERSION }}"
           fi
 
-      # Официальный action ставит стабильный Rust и нужный target за секунды.
-      # Раньше здесь был `rustup update stable`, который на runner'ах зависал.
-      - name: Install Rust (Windows target)
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: x86_64-pc-windows-gnu
+      - name: Setup MSVC environment
+        uses: ilammy/msvc-dev-cmd@v1
 
-      # Лёгкий пакет вместо всего mingw-w64: даёт windres и dlltool.
-      - name: Install mingw-w64 linker
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y gcc-mingw-w64-x86-64
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
 
       - name: Cache cargo
         uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: ". -> target"
 
       - name: Build Windows binary
-        env:
-          WINDOWS_RESOURCE_COMPILER: x86_64-w64-mingw32-windres
         run: |
-          cargo build --release --target x86_64-pc-windows-gnu
-          cp target/x86_64-pc-windows-gnu/release/zvukopad.exe zvukopad.exe
+          cargo build --release
+          cp target/release/zvukopad.exe zvukopad.exe
 
       - name: Create or update Release
         env:
