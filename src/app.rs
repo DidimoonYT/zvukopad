@@ -390,49 +390,72 @@ impl eframe::App for ZvukopadApp {
         });
 
         // 5. Статус-бар.
-        egui::TopBottomPanel::bottom("status_bar").show(ctx, |ui| {
+        egui::TopBottomPanel::bottom("status_bar")
+            .frame(
+                egui::Frame::NONE
+                    .fill(dark::bg())
+                    .inner_margin(egui::Margin::symmetric(16, 0)),
+            )
+            .show(ctx, |ui| {
             card_frame().show(ui, |ui| {
-                ui.horizontal(|ui| {
-                    ui.add_space(PAD_CARD);
-                    ui.label(
+                ui.set_min_width(ui.available_width());
+                ui.add(
+                    egui::Label::new(
                         egui::RichText::new(&self.status)
                             .size(FONT_BODY)
-                            .color(dark::secondary())
-                    );
-                    let playing = self.audio.borrow().playing_names();
-                    if !playing.is_empty() {
-                        ui.separator();
+                            .color(dark::secondary()),
+                    )
+                    .wrap(),
+                );
+
+                let playing = self.audio.borrow().playing_names();
+                if !playing.is_empty() {
+                    ui.add_space(4.0);
+                    ui.horizontal_wrapped(|ui| {
                         ui.label(
-                            egui::RichText::new("Играет:").size(FONT_BODY).color(dark::muted())
+                            egui::RichText::new("Играет:").size(FONT_BODY).color(dark::muted()),
                         );
                         ui.label(
                             egui::RichText::new(
-                                playing.iter().map(|(_, n)| n.clone()).collect::<Vec<_>>().join(", ")
+                                playing
+                                    .iter()
+                                    .map(|(_, n)| n.clone())
+                                    .collect::<Vec<_>>()
+                                    .join(", "),
                             )
                             .size(FONT_BODY)
-                            .color(dark::text())
+                            .color(dark::text()),
                         );
-                    }
-                    ui.add_space(PAD_CARD);
-                });
+                    });
+                }
             });
         });
 
         // 6. Настройки (правая панель).
         egui::SidePanel::right("settings")
-            .default_width(340.0)
+            .resizable(false)
+            .exact_width(380.0)
+            .frame(
+                egui::Frame::NONE
+                    .fill(dark::bg())
+                    .inner_margin(egui::Margin::symmetric(16, 16)),
+            )
             .show(ctx, |ui| {
-                card_frame().show(ui, |ui| {
-                    self.draw_settings(ui);
-                });
+                self.draw_settings(ui);
             });
 
         // 7. Список звуков (центр).
-        egui::CentralPanel::default().show(ctx, |ui| {
-            card_frame().show(ui, |ui| {
-                self.draw_sounds_list(ui);
+        egui::CentralPanel::default()
+            .frame(
+                egui::Frame::NONE
+                    .fill(dark::bg())
+                    .inner_margin(egui::Margin::symmetric(16, 16)),
+            )
+            .show(ctx, |ui| {
+                card_frame().show(ui, |ui| {
+                    self.draw_sounds_list(ui);
+                });
             });
-        });
 
         // 8. Модальное окно редактирования.
         self.draw_edit_dialog(ctx);
@@ -540,6 +563,7 @@ impl ZvukopadApp {
         egui::ScrollArea::vertical()
             .auto_shrink([false, false])
             .show(ui, |ui| {
+                ui.set_width(ui.available_width());
                 self.draw_settings_inner(ui);
             });
     }

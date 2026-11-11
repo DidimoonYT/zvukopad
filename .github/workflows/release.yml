@@ -14,12 +14,11 @@ permissions:
 
 jobs:
   build-and-release:
-    # Нативный Windows-раннер: MSVC, rc.exe, link.exe уже на месте —
-    # не нужны mingw/apt-get и кросс-компиляция.
+    # Нативный Windows-раннер: MSVC, rc.exe, link.exe уже на месте.
+    # ВАЖНО: используем PowerShell, а не bash. В Git Bash первым в PATH
+    # оказывается C:\Program Files\Git\usr\bin\link.exe (утилита coreutils),
+    # и rustc вызывает её вместо линкера MSVC — сборка падает.
     runs-on: windows-latest
-    defaults:
-      run:
-        shell: bash
 
     steps:
       - uses: actions/checkout@v4
@@ -28,18 +27,24 @@ jobs:
 
       - name: Get version from Cargo.toml
         id: version
+        shell: pwsh
         run: |
-          VERSION=$(grep '^version' Cargo.toml | head -1 | sed 's/.*= *"\(.*\)".*/\1/')
-          echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+          $line = Select-String -Path Cargo.toml -Pattern '^version\s*=\s*"(.+)"' | Select-Object -First 1
+          $version = $line.Matches[0].Groups[1].Value
+          "VERSION=$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+          Write-Host "Версия: $version"
 
       - name: Create git tag if missing
+        shell: pwsh
         run: |
           git config user.name "github-actions"
           git config user.email "github-actions@github.com"
-          if ! git rev-parse "v${{ steps.version.outputs.VERSION }}" >/dev/null 2>&1; then
-            git tag "v${{ steps.version.outputs.VERSION }}"
-            git push origin "v${{ steps.version.outputs.VERSION }}"
-          fi
+          $tag = "v${{ steps.version.outputs.VERSION }}"
+          git rev-parse $tag 2>$null
+          if ($LASTEXITCODE -ne 0) {
+            git tag $tag
+            git push origin $tag
+          }
 
       - name: Setup MSVC environment
         uses: ilammy/msvc-dev-cmd@v1
@@ -50,41 +55,41 @@ jobs:
       - name: Cache cargo
         uses: Swatinem/rust-cache@v2
 
-      # Собираем с сохранением лога, чтобы при падении можно было его прочитать.
-      - name: Build Windows binary
+      # Проверяем, что линкер — действительно MSVC, а не Git-утилита.
+      - name: Verify linker
+        shell: pwsh
         run: |
-          set -o pipefail
-          cargo build --release 2>&1 | tee build.log
-          cp target/release/zvukopad.exe zvukopad.exe
+          Write-Host "which link: $((Get-Command link.exe).Source)"
+
+      - name: Build Windows binary
+        shell: pwsh
+        run: |
+          cargo build --release 2>&1 | Tee-Object -FilePath build.log
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          Copy-Item target/release/zvukopad.exe zvukopad.exe
 
       # Диагностика: при ошибке публикуем хвост лога в issue (публично читаемо).
       - name: Publish build log on failure
         if: failure()
+        shell: pwsh
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          {
-            echo 'Лог сборки (последние 400 строк):'
-            echo '```'
-            tail -n 400 build.log 2>/dev/null || echo 'build.log отсутствует'
-            echo '```'
-          } > issue-body.md
-          gh issue create \
-            --repo "${{ github.repository }}" \
-            --title "[CI] Ошибка сборки v${{ steps.version.outputs.VERSION }} (run ${{ github.run_id }})" \
-            --body-file issue-body.md
+          $tail = if (Test-Path build.log) { (Get-Content build.log -Tail 400) -join "`n" } else { 'build.log отсутствует' }
+          $body = "Лог сборки (последние 400 строк):`n``````n$tail`n``````"
+          $body | Out-File -FilePath issue-body.md -Encoding utf8
+          gh issue create --repo "${{ github.repository }}" --title "[CI] Ошибка сборки v${{ steps.version.outputs.VERSION }} (run ${{ github.run_id }})" --body-file issue-body.md
 
       - name: Create or update Release
+        shell: pwsh
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          TAG="v${{ steps.version.outputs.VERSION }}"
-          if gh release view "$TAG" --repo "${{ github.repository }}" >/dev/null 2>&1; then
-            gh release upload "$TAG" zvukopad.exe --repo "${{ github.repository }}" --clobber
-          else
-            gh release create "$TAG" \
-              --repo "${{ github.repository }}" \
-              --title "Звукопад $TAG" \
-              --notes "Релиз $TAG" \
-              zvukopad.exe
-          fi
+          $tag = "v${{ steps.version.outputs.VERSION }}"
+          $repo = "${{ github.repository }}"
+          gh release view $tag --repo $repo 2>$null
+          if ($LASTEXITCODE -eq 0) {
+            gh release upload $tag zvukopad.exe --repo $repo --clobber
+          } else {
+            gh release create $tag --repo $repo --title "Звукопад $tag" --notes "Релиз $tag" zvukopad.exe
+          }
