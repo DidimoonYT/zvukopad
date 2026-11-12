@@ -83,6 +83,8 @@ code {
 }
 .nav a { color: var(--secondary); }
 .nav a:hover { color: var(--text); }
+.nav .donate-link { color: var(--accent); font-weight: 600; }
+.nav .donate-link:hover { color: var(--accent-strong); }
 .nav .btn { color: var(--accent-text); }
 .nav .btn:hover { color: var(--accent-text); }
 
@@ -287,6 +289,9 @@ h2 {
 }
 .download-card h2 { margin: 0 0 4px; }
 .download-card p { margin: 0; color: var(--muted); font-size: 12px; }
+.download-note { margin: 12px 0 0; color: var(--muted); font-size: 12px; }
+.download-note a { color: var(--accent); }
+.download-note a:hover { color: var(--accent-strong); }
 .download-actions {
   display: flex;
   flex-wrap: wrap;
