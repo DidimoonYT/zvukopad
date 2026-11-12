@@ -186,7 +186,14 @@ h1 {
   color: var(--muted);
   font-size: 12px;
 }
-.app-shot img { width: 100%; height: auto; }
+.app-shot img {
+  display: block;
+  width: calc(100% - 24px);
+  height: auto;
+  margin: 0 auto 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-field);
+}
 
 /* Sections */
 .section { padding: 40px 0; }
